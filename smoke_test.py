@@ -44,9 +44,20 @@ count matched.
     EMPTY_HTML           a listing the site served with no tiles on it: a
                          tag facet walked past its end. An ANSWER, not a
                          failure.
-    NOTFOUND_HTML        the site's own 404. It carries exactly one
-                         product-shaped link, which is why the
-                         parse-failure threshold is two.
+    NOTFOUND_HTML        a BOGUS GOODS CODE — `/site/x/g/gZZZZZZ/`, which
+                         this site answers with HTTP **200** and its full
+                         chrome, not with a 404. It carries exactly one
+                         product-shaped link, which is why the parse-failure
+                         threshold is two. An earlier version of this fixture
+                         was written by hand with a 404 title on it, and was
+                         wrong about the one thing it existed to show (§21: a
+                         guard is only as good as the fixture it runs
+                         against).
+    HTTP404_HTML         the site's REAL 404, verbatim from
+                         `/definitely-not-a-page`: 1,040 bytes, no site
+                         chrome at all, and the status stated in its own
+                         <title>. That last part is what lets Selenium — which
+                         cannot read an HTTP status — agree with its twins.
     CHROMIUM_ERROR_HTML  Chromium's own network-error page. It carries
                          `<title>maison.kose.co.jp</title>` — the site's own
                          hostname — and no vendor marker at all, which is
@@ -544,6 +555,55 @@ see zero products in it.</a>
 <div class="awoo-product-list"><p class="awoo-product-name">別の商品</p><p class="awoo-product-price">1,100円</p></div>
 </body></html>"""
 
+HTTP404_HTML = """﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>404- ページが見つかりません。</title>
+<style type="text/css">
+<!--
+/* CSS layout */
+
+body {
+	margin: 0;
+	padding: 0;
+	color: #444;
+}
+
+.block-custom-error-404 {
+	width: 500px;
+	text-align: center;
+	margin: 50px auto 0 auto;
+	padding: 30px;
+	border: 1px solid #808080;
+}
+
+.block-custom-error-404--title {
+	font-weight: bold;
+}
+
+-->
+</style>
+</head>
+<body class="page-customerror">
+<div class="wrapper">
+	<div class="pane-contents">
+		<div class="container">
+			<main class="pane-main">
+				<div class="block-custom-error-404">
+					<p class="block-custom-error-404--title">大変申し訳ありませんが、該当ページがございません。</p>
+					<p class="block-custom-error-404--top"><a href="/" target="_self">トップページ</a>へご案内いたします。</p>
+					<p class="block-custom-error-404--message">このページをブックマーク登録されていた方は、お手数ですがブックマークの変更をお願いいたします。</p>
+					<a class="block-custom-error-404--history-back" href="javascript:void(0)" onclick="javascript:history.go(-1)">戻る</a>
+				</div>
+			</main>
+		</div>
+	</div>
+</div>
+</body>
+</html>
+"""
+
 EMPTY_HTML = """<!doctype html><html lang="ja"><head>
 <meta charset="UTF-8">
 <title>シワ改善 スキンケア ｜ Maison KOS&#201;(メゾンコーセー)</title>
@@ -555,11 +615,15 @@ EMPTY_HTML = """<!doctype html><html lang="ja"><head>
 
 NOTFOUND_HTML = """<!doctype html><html lang="ja"><head>
 <meta charset="UTF-8">
-<title>404- ページが見つかりません。</title>
-<script src="/js/sys/cart.js"></script>
-<link rel="stylesheet" href="/freepage/maison-kose/common/css/style.css">
-</head><body><p>お探しのページは見つかりませんでした。</p>
-<a href="/site/cosmedecorte/g/gJLCW/">おすすめ</a>
+<title>｜ Maison KOS&#201;(メゾンコーセー)</title>
+<script src="/js/sys/common.js?t=1"></script>
+<script src="/js/sys/search_suggest.js"></script>
+<script src="/js/sys/sys.js"></script>
+<link rel="stylesheet" href="//d3e9wwnbfrsolq.cloudfront.net/freepage/maison-kose/css/style_pc.css">
+<link rel="stylesheet" href="//d3e9wwnbfrsolq.cloudfront.net/freepage/maison-kose/css/pc_add__dev.css?2409">
+</head><body>
+<div class="l-main__content"></div>
+<a href="https://maison.kose.co.jp/site/g/gZZZZZZ/">おすすめ</a>
 </body></html>"""
 
 CHROMIUM_ERROR_HTML = """<html><head><title>maison.kose.co.jp</title></head><body><div id="main-frame-error"><span jscontent="heading.msg">このサイトにアクセスできません</span><div class="error-code">ERR_PROXY_CONNECTION_FAILED</div></div></body></html>"""
@@ -887,13 +951,34 @@ def check_the_sites_own_page_counter_is_read():
 
 
 def check_pages_are_planned_from_the_counter():
-    """Load-bearing here: past its end a category serves its LAST page again."""
-    equal("50 asked, 13 available", product_parser.pages_to_fetch(50, 13), 13)
-    equal("3 asked, 13 available", product_parser.pages_to_fetch(3, 13), 3)
+    """Load-bearing here: past its end a category serves its LAST page again.
+
+    Against `page_flow.pages_to_plan`, which is the function the ENGINES
+    call. An earlier version of this check exercised a `product_parser`
+    helper that the engines had stopped using, so it passed while saying
+    nothing about what a run would do (§17's check #5 found it).
+    """
+    equal("50 asked, 13 available", list(page_flow.pages_to_plan(50, 13)),
+          list(range(1, 14)))
+    equal("3 asked, 13 available", list(page_flow.pages_to_plan(3, 13)),
+          [1, 2, 3])
     equal("unknown count does not cap the run",
-          product_parser.pages_to_fetch(5, None), 5)
+          list(page_flow.pages_to_plan(5, None)), [1, 2, 3, 4, 5])
     equal("and zero available is treated as unknown rather than as a cap",
-          product_parser.pages_to_fetch(5, 0), 5)
+          list(page_flow.pages_to_plan(5, 0)), [1, 2, 3, 4, 5])
+    equal("asking for no pages plans none",
+          list(page_flow.pages_to_plan(0, 13)), [])
+
+    # The START page is honoured rather than normalised away. A run pointed
+    # at /c/c15_p10/ reads 10, 11, 12 — an earlier version reset every run to
+    # page 1, so a run aimed at page 10 quietly returned page 1's products.
+    equal("3 asked from page 10", list(page_flow.pages_to_plan(3, 13, 10)),
+          [10, 11, 12])
+    equal("a run near the end stops at the last page",
+          list(page_flow.pages_to_plan(5, 13, 12)), [12, 13])
+    equal("a start page past the counter still fetches the page asked for, "
+          "because the counter can be stale",
+          list(page_flow.pages_to_plan(1, 13, 20)), [20])
 
 
 def check_listing_page_level_facts():
@@ -2302,6 +2387,125 @@ def check_the_credential_scan_skips_a_virtualenv_whatever_it_is_called():
                   ci_checks.secret_check(), [])
         finally:
             ci_checks.REPO = before
+
+
+def check_a_404_is_terminal_and_not_a_retry():
+    """A discarded HTTP status turns a 404 into a retryable nothing.
+
+    This site answers a missing PATH with a bare 1,040-byte page carrying no
+    site chrome at all — 0 references to `/js/sys/` or `/freepage/` — so
+    without a status it classifies as "unknown", which RETRIES and spends the
+    budget on an address that will never exist. Measured 2026-09-18 on
+    `/definitely-not-a-page`.
+
+    Note what a 404 is NOT on this site: a bogus goods code or category id
+    answers HTTP 200 with the full chrome and no tiles, which is `empty` — a
+    correct answer about the CATALOGUE, where a 404 is an answer about the
+    ADDRESS.
+    """
+    equal("the real 404 carries no site chrome",
+          product_parser.references_own_assets(HTTP404_HTML), 0)
+    equal("with the status threaded, it is not_found",
+          page_flow.classify(HTTP404_HTML, 404), "not_found")
+    equal("and it is terminal", page_flow.should_retry("not_found"), False)
+    equal("and not a block — exit 3 would send the reader after a proxy",
+          page_flow.counts_as_blocked("not_found"), False)
+    equal("and there is nothing on it to parse",
+          page_flow.should_parse("not_found"), False)
+    equal("a served-but-empty page is still EMPTY, not not_found",
+          page_flow.classify(EMPTY_HTML, 200), "empty")
+
+    # §20: check the signal CAN fire before adding it. It can, on a URL this
+    # scraper ACCEPTS: the tag route with no `tags=` parameter is a supported
+    # address and answers HTTP 404 (measured 2026-09-18). A user who pastes
+    # the bare facet URL lands exactly here, so the branch is reachable
+    # rather than decorative.
+    bare_tags = "https://maison.kose.co.jp/site/itemtags/list.aspx"
+    ok, why = product_parser.is_supported_url(bare_tags)
+    check("the bare tag URL is accepted, so a 404 can reach the classifier",
+          ok, why)
+    equal("...and so is a bogus goods code, which answers 200",
+          page_flow.classify(NOTFOUND_HTML, 200), "empty")
+
+
+def check_all_three_engines_agree_about_a_404():
+    """Selenium cannot read an HTTP status; it must still agree.
+
+    `driver.get()` returns None and WebDriver exposes no status at all, so
+    the parser reads the one the site states in its own error page. Without
+    that, two engines would be better informed than the third and would
+    report different exit codes for the same response — the drift a shared
+    module exists to prevent.
+    """
+    equal("the site states its status in its own title",
+          product_parser.status_from_body(HTTP404_HTML), 404)
+    equal("Playwright / pyppeteer, which thread the real status",
+          page_flow.classify(HTTP404_HTML, 404), "not_found")
+    equal("Selenium, which cannot, via the body reader",
+          page_flow.classify(HTTP404_HTML, None), "not_found")
+    # And the reader must not invent a status out of ordinary pages.
+    for name, html in (("listing", LISTING_HTML), ("product", PRODUCT_HTML),
+                       ("tags", TAGS_HTML), ("empty", EMPTY_HTML),
+                       ("served-empty goods code", NOTFOUND_HTML)):
+        equal("no status read out of the %s fixture" % name,
+              product_parser.status_from_body(html), None)
+
+
+def check_the_engines_really_thread_a_status():
+    """Asserted in the SOURCE, because a live 404 is what it takes otherwise.
+
+    The memory this fixes was written after all three engines in a sibling
+    repo discarded `goto()`'s response: `--help`, `compileall`, an
+    undefined-name walk and 570 offline checks all passed on it, and only a
+    real run reached a 404. So this reads the engines rather than running
+    them, and asserts the shape that cannot be checked any other way.
+    """
+    for module in ("playwright_scraper", "puppeteer_scraper"):
+        path = os.path.join(HERE, module + ".py")
+        if not os.path.exists(path):
+            continue
+        source = open(path, encoding="utf-8").read()
+        check("%s binds the navigation response" % module,
+              "response = " in source and "response.status" in source,
+              "goto() returns a response and this engine can read it")
+        # Every classify CALL SITE, bound by an ast walk rather than by
+        # grepping for the variable name anywhere in the file. The first
+        # version of this check did the latter and passed for the wrong
+        # reason: reverting the fix left `http_status` declared and unused,
+        # and the check went on saying green (§22 — verify that your control
+        # actually failed).
+        tree = ast.parse(source)
+        calls = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            fn = node.func
+            name = (fn.attr if isinstance(fn, ast.Attribute)
+                    else getattr(fn, "id", None))
+            if name not in ("classify", "classify_with_reason", "_classify"):
+                continue
+            calls.append(node)
+        check("%s has classify call sites to check" % module, bool(calls))
+        for node in calls:
+            args = list(node.args) + [k.value for k in node.keywords
+                                      if k.arg == "status"]
+            threaded = any(isinstance(a, ast.Name) and "status" in a.id
+                           for a in args)
+            check("%s:%d passes a status to the classifier"
+                  % (module, node.lineno), threaded,
+                  "this engine CAN read one from goto(), so a None here "
+                  "turns a 404 into a retryable nothing")
+    sel = os.path.join(HERE, "selenium_scraper.py")
+    if os.path.exists(sel):
+        # Comment markers stripped and whitespace normalised, because the
+        # sentence wraps across lines in the source. A literal match would
+        # be testing the line width rather than what the file says.
+        raw = open(sel, encoding="utf-8").read()
+        source = re.sub(r"\s+", " ", re.sub(r"(?m)^\s*#", " ", raw))
+        check("selenium_scraper says WHY it threads no status",
+              "WebDriver exposes no HTTP status" in source,
+              "an engine that cannot do what its twins do must say so, or "
+              "the next reader 'fixes' it by copying their code")
 
 
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]

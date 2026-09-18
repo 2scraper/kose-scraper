@@ -305,17 +305,17 @@ def _plan_page_urls(args, page_one_url: str,
     ends with a genuinely empty page, which is why the data-based stop stays
     in place for both.
     """
-    start = page_url_start(page_one_url)
-    last = start + args.pages - 1
-    if pages_avail:
-        last = min(last, pages_avail)
-    if last < start + args.pages - 1:
+    planned = page_flow.pages_to_plan(args.pages, pages_avail,
+                                      page_url_start(page_one_url))
+    if planned.stop - 1 < page_url_start(page_one_url) + args.pages - 1:
         logger.info("The site reports %s page(s) for this listing and the run "
                     "asked for %d starting at %d. Stopping at %d: past the "
                     "end a category listing serves its LAST PAGE again rather "
                     "than an empty one, so the extra fetches would return "
-                    "duplicates.", pages_avail, args.pages, start, last)
-    return [page_url(page_one_url, n) for n in range(start + 1, last + 1)]
+                    "duplicates.", pages_avail, args.pages,
+                    page_url_start(page_one_url), planned.stop - 1)
+    # Page one is already fetched; this is 2..N of the run.
+    return [page_url(page_one_url, n) for n in planned[1:]]
 
 
 def page_url_start(url: str) -> int:
@@ -754,6 +754,15 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # rotation, which is how a run quietly turns into a bill.
     solves_bought = 0
     html, state, load_failed = None, "ok", False
+    # The HTTP status the navigation returned, threaded all the way to the
+    # classifier. Discarding it is a real defect and not a tidiness one: this
+    # site answers a missing address with a bare 1,040-byte page carrying NO
+    # site chrome, so without a status it reads as "not recognisably this
+    # site" — which RETRIES, and spends the retry budget on an address that
+    # will never exist. Selenium cannot do this (WebDriver exposes no status
+    # at all), which is why `product_parser.status_from_body` exists beside
+    # it and why all three engines end up agreeing anyway.
+    http_status = None
 
     for block_attempt in range(block_retries + 1):
         logger.info("Fetching page %d/%d: %s", page_num, args.pages, url)
@@ -762,7 +771,12 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         load_failed, exit_failed = False, None
         for attempt in range(1, args.retries + 1):
             try:
-                session.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                response = session.page.goto(url, wait_until="domcontentloaded",
+                                             timeout=60000)
+                # None on a same-document navigation, which is not an error —
+                # it means "no new response", so the previous status stands.
+                if response is not None:
+                    http_status = response.status
                 load_failed = False
                 break
             except (PWTimeout, PWError) as e:
@@ -800,7 +814,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             session.page.wait_for_timeout(1000)
 
         html = _snapshot(session.page, url) or ""
-        state = _classify(session.page, html)
+        state = _classify(session.page, html, http_status)
 
         # This site server-renders its grid, so a listing is parseable in
         # the FIRST response and there is nothing to wait for on a healthy
@@ -829,7 +843,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
                 logger.info("Still nothing after %.0fs (%d match(es) for %s).",
                             wait_timeout / 1000, found, _ready_selector(args))
             html = _snapshot(session.page, url) or html
-            state = _classify(session.page, html)
+            state = _classify(session.page, html, http_status)
 
         # The paid path is reached only for state "captcha" — a rendered
         # widget, which IS a test and can be solved. It is NOT reached for
@@ -844,7 +858,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             if handle_captcha_if_present(session.page, args):
                 session.page.wait_for_timeout(1000)
                 html = _snapshot(session.page, url) or html
-                state = _classify(session.page, html)
+                state = _classify(session.page, html, http_status)
                 # The VERIFIED outcome, and the only one worth reporting: a
                 # "ready" task result is not evidence the token works. This
                 # line is what says whether the money bought anything.
@@ -1270,6 +1284,19 @@ def scrape(args) -> int:
                 stop_reason = ("page_load_timeout" if first.load_failed
                                else f"blocked_{first.blocked_by}")
                 blocked = first.blocked_by is not None
+            elif first.state == "not_found":
+                # The address does not exist. A terminal answer about the URL
+                # rather than about the catalogue, so the run stops here
+                # instead of planning pages 2..N against something that will
+                # 404 too. Its own stop_reason, because "no products" would
+                # send the reader to check the parser when the thing to check
+                # is what they typed.
+                stop_reason = "not_found"
+                logger.error("%s does not exist — HTTP 404. Nothing was "
+                             "scraped. On this site a bogus goods code or "
+                             "category id answers 200 with an empty page "
+                             "instead, so a real 404 means the PATH is wrong, "
+                             "not the id.", first.url)
             elif first.state == "parse_failed":
                 # Served, linked to products, parsed to nothing: OUR bug, and
                 # it must not reach the sidecar as a complete run (§20).

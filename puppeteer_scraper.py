@@ -626,17 +626,17 @@ def _plan_page_urls(args, page_one_url: str,
     ends with a genuinely empty page, which is why the data-based stop stays
     in place for both.
     """
-    start = page_url_start(page_one_url)
-    last = start + args.pages - 1
-    if pages_avail:
-        last = min(last, pages_avail)
-    if last < start + args.pages - 1:
+    planned = page_flow.pages_to_plan(args.pages, pages_avail,
+                                      page_url_start(page_one_url))
+    if planned.stop - 1 < page_url_start(page_one_url) + args.pages - 1:
         logger.info("The site reports %s page(s) for this listing and the run "
                     "asked for %d starting at %d. Stopping at %d: past the "
                     "end a category listing serves its LAST PAGE again rather "
                     "than an empty one, so the extra fetches would return "
-                    "duplicates.", pages_avail, args.pages, start, last)
-    return [page_url(page_one_url, n) for n in range(start + 1, last + 1)]
+                    "duplicates.", pages_avail, args.pages,
+                    page_url_start(page_one_url), planned.stop - 1)
+    # Page one is already fetched; this is 2..N of the run.
+    return [page_url(page_one_url, n) for n in planned[1:]]
 
 
 def page_url_start(url: str) -> int:
@@ -672,6 +672,10 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # keeps coming back as a challenge would otherwise buy one solve per
     # rotation, which is how a run quietly turns into a bill.
     solves_bought = 0
+    # The HTTP status the navigation returned. Threaded to the classifier:
+    # this site answers a missing address with a bare page carrying no site
+    # chrome, which without a status reads as "unknown" and RETRIES.
+    http_status = None
     html, state, load_failed = None, "ok", False
 
     for block_attempt in range(block_retries + 1):
@@ -679,8 +683,13 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         load_failed = False
         for attempt in range(1, args.retries + 1):
             try:
-                bridge.run(page.goto(url, {"waitUntil": "domcontentloaded",
-                                           "timeout": 60000}))
+                response = bridge.run(page.goto(url, {"waitUntil": "domcontentloaded",
+                                                      "timeout": 60000}))
+                # None on a same-document navigation: no new response, so the
+                # previous status stands. See the Playwright engine for why
+                # discarding this is a defect rather than a tidiness matter.
+                if response is not None:
+                    http_status = response.status
                 load_failed = False
                 break
             except Exception as e:  # noqa: BLE001 — pyppeteer raises many types
@@ -715,7 +724,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             time.sleep(1)
 
         html = _snapshot(session, url) or ""
-        state = page_flow.classify(html, None, page.url)
+        state = page_flow.classify(html, http_status, page.url)
 
         # This site server-renders its data, so a listing is parseable in the
         # FIRST response. The wait below is only for the state that says the
@@ -736,7 +745,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
                 logger.info("Still nothing after %.0fs (%d match(es) for %s).",
                             wait_ms / 1000.0, found, sel)
             html = _snapshot(session, url) or html
-            state = page_flow.classify(html, None, page.url)
+            state = page_flow.classify(html, http_status, page.url)
 
         # The paid path is reached only for state "captcha" — a rendered
         # Managed Challenge, which IS a test. It is NOT reached for
@@ -753,7 +762,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             if handle_captcha_if_present(session, args):
                 time.sleep(1)
                 html = _content(session) or html
-                state = page_flow.classify(html, url=page.url)
+                state = page_flow.classify(html, http_status, page.url)
                 if state == "content":
                     logger.info("The solve was accepted — page %d is content "
                                 "now.", page_num)
@@ -1002,6 +1011,17 @@ def scrape(args) -> int:
             stop_reason = ("page_load_timeout" if first.load_failed
                            else f"blocked_{first.blocked_by}")
             blocked = first.blocked_by is not None
+        elif first.state == "not_found":
+            # The address does not exist. A terminal answer about the URL
+            # rather than about the catalogue, so the run stops here instead
+            # of planning pages 2..N against something that will 404 too. Its
+            # own stop_reason, because "no products" would send the reader to
+            # check the parser when the thing to check is what they typed.
+            stop_reason = "not_found"
+            logger.error("%s does not exist — HTTP 404. Nothing was scraped. "
+                         "On this site a bogus goods code or category id "
+                         "answers 200 with an empty page instead, so a real "
+                         "404 means the PATH is wrong, not the id.", first.url)
         elif first.state == "parse_failed":
             # Served, linked to products, parsed to nothing: OUR bug, and it
             # must not reach the sidecar as a complete run (§20).

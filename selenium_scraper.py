@@ -534,17 +534,17 @@ def _plan_page_urls(args, page_one_url: str,
     ends with a genuinely empty page, which is why the data-based stop stays
     in place for both.
     """
-    start = page_url_start(page_one_url)
-    last = start + args.pages - 1
-    if pages_avail:
-        last = min(last, pages_avail)
-    if last < start + args.pages - 1:
+    planned = page_flow.pages_to_plan(args.pages, pages_avail,
+                                      page_url_start(page_one_url))
+    if planned.stop - 1 < page_url_start(page_one_url) + args.pages - 1:
         logger.info("The site reports %s page(s) for this listing and the run "
                     "asked for %d starting at %d. Stopping at %d: past the "
                     "end a category listing serves its LAST PAGE again rather "
                     "than an empty one, so the extra fetches would return "
-                    "duplicates.", pages_avail, args.pages, start, last)
-    return [page_url(page_one_url, n) for n in range(start + 1, last + 1)]
+                    "duplicates.", pages_avail, args.pages,
+                    page_url_start(page_one_url), planned.stop - 1)
+    # Page one is already fetched; this is 2..N of the run.
+    return [page_url(page_one_url, n) for n in planned[1:]]
 
 
 def page_url_start(url: str) -> int:
@@ -579,6 +579,15 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # keeps coming back as a challenge would otherwise buy one solve per
     # rotation, which is how a run quietly turns into a bill.
     solves_bought = 0
+    # No `http_status` here, and its ABSENCE is the finding rather than an
+    # oversight: `driver.get()` returns None and WebDriver exposes no HTTP
+    # status at all, so this engine cannot thread one however carefully its
+    # twins do. Rather than leave it worse informed than they are — the
+    # drift a shared module exists to prevent (§1) — the classifier falls
+    # back to `product_parser.status_from_body`, which reads the status this
+    # site states in its own error page (`<title>404- …`). Measured
+    # 2026-09-18: that is what makes all three engines agree on a 404 rather
+    # than two of them being better informed than the third.
 
     for block_attempt in range(block_retries + 1):
         logger.info("Fetching page %d/%d: %s", page_num, args.pages, url)
@@ -895,6 +904,17 @@ def scrape(args) -> int:
             stop_reason = ("page_load_timeout" if first.load_failed
                            else f"blocked_{first.blocked_by}")
             blocked = first.blocked_by is not None
+        elif first.state == "not_found":
+            # The address does not exist. A terminal answer about the URL
+            # rather than about the catalogue, so the run stops here instead
+            # of planning pages 2..N against something that will 404 too. Its
+            # own stop_reason, because "no products" would send the reader to
+            # check the parser when the thing to check is what they typed.
+            stop_reason = "not_found"
+            logger.error("%s does not exist — HTTP 404. Nothing was scraped. "
+                         "On this site a bogus goods code or category id "
+                         "answers 200 with an empty page instead, so a real "
+                         "404 means the PATH is wrong, not the id.", first.url)
         elif first.state == "parse_failed":
             # Served, linked to products, parsed to nothing: OUR bug, and it
             # must not reach the sidecar as a complete run (§20).

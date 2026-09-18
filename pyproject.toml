@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kose-scraper"
-version = "0.1.0"
+version = "0.1.1"
 description = "Maison KOSÉ (maison.kose.co.jp) scraper: category and tag listings, product pages, prices, brands and stock."
 readme = "README.md"
 license = "MIT"

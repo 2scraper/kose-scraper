@@ -8,6 +8,66 @@ as a CLI toolkit can. A **patch** release means fixes; it does not promise
 that every flag and default is frozen. Where a patch changes behaviour an
 existing user would notice, the release notes lead with it.
 
+## [0.1.1] — 2026-09-18
+
+A pass back over CLAUDE.md before calling the repo finished. Everything here
+was found by checking a claim rather than by reading the code.
+
+### Fixed
+
+- **An HTTP 404 was retried instead of being believed.** The engines
+  discarded what `goto()` returned, so every page reached the classifier with
+  `status=None` — and this site answers a missing path with a bare
+  1,040-byte page carrying *no site chrome at all*, which without a status
+  reads as "not recognisably this site" and RETRIES. Playwright and pyppeteer
+  now thread the real status; Selenium cannot (WebDriver exposes none), so
+  the parser reads the status the site states in its own `<title>404- …`,
+  which is what makes all three engines agree rather than two of them being
+  better informed than the third.
+
+  A new terminal `not_found` state does not retry, does not count as blocked
+  — exit 3 would send the reader after a proxy problem — and stops the run
+  with its own `stop_reason`. Verified end to end: the bare tag-facet URL
+  (`/site/itemtags/list.aspx` with no `tags=`) is an address this scraper
+  ACCEPTS and really does answer 404, so the branch is reachable rather than
+  decorative.
+
+- **A run pointed at page 10 quietly returned page 1.** `_target_url`
+  normalised a listing URL back to page 1, so `--url .../c15_p10/ --pages 2`
+  fetched pages 1 and 2 and reported success. The start page is now honoured:
+  that run reads 10 and 11.
+
+- **The credential scan failed on a clean clone.** It skipped virtualenvs by
+  DIRECTORY NAME, so following this repo's own README with the environment
+  called anything but `.venv` walked into it and failed on the 32-hex string
+  inside pip's vendored `packaging/_elffile.py`. A venv is now recognised by
+  a `pyvenv.cfg` above the file or `site-packages` in its path. Measured
+  across the family: 21 of 26 sibling repos still have the name-based
+  version.
+
+- **Two planning implementations became one.** `page_flow.pages_to_plan` now
+  returns the absolute page numbers a run should fetch and is the only place
+  that arithmetic lives; `plan_from_total` (a wrapper nothing called) and
+  `product_parser.pages_to_fetch` (used only by its own test) are gone. Found
+  by grepping every public name for a consumer outside its own module.
+
+- **A fabricated fixture was replaced with a real capture.** `NOTFOUND_HTML`
+  had been written by hand with a `404-` title on it, and was wrong about the
+  one thing it existed to show: this site answers a bogus goods code with
+  HTTP **200** and its full chrome. Every fixture in the suite is now cut
+  from a real response.
+
+### Verified
+
+- `--concurrency 3` over five pages: 120 rows, 120 distinct skus, merged in
+  PAGE order although the pages arrived 4-3-2-5, and `page`+`position` unique
+  across the run. Refused over `--cdp-endpoint`, with the reason.
+- The published repo description, topics, homepage and release notes carry
+  none of the banned wording — the surfaces a file scan cannot see.
+- 459 offline checks, and every new check was CONTROLLED: the fix reverted,
+  the expected failures confirmed by name, the fix restored. One control
+  caught a check of mine that was passing for the wrong reason.
+
 ## [0.1.0] — 2026-09-18
 
 First release. Reads **Maison KOSÉ** (`maison.kose.co.jp`), Kosé's own online
@@ -85,4 +145,5 @@ store.
   with no tiles on it, so there is no keyword-search mode. The tag facets are
   the route that crosses brands.
 
+[0.1.1]: https://github.com/2scraper/kose-scraper/releases/tag/v0.1.1
 [0.1.0]: https://github.com/2scraper/kose-scraper/releases/tag/v0.1.0

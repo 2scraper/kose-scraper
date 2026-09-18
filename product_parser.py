@@ -458,19 +458,17 @@ def total_pages(html: str) -> Optional[int]:
     return page_counter(html)[1]
 
 
-def pages_to_fetch(pages_requested: int, pages_avail: Optional[int]) -> int:
-    """How many pages a run should actually ask for.
-
-    Bounded by the site's own count where it published one, so a `--pages 50`
-    against a 13-page category costs 13 fetches and not 50 -- and, on this
-    site, so that a run does not spend 37 fetches re-reading page 13, which
-    is what an overshoot returns here.
-    """
-    if pages_requested <= 0:
-        return 0
-    if pages_avail is None or pages_avail <= 0:
-        return pages_requested
-    return min(pages_requested, pages_avail)
+# `pages_to_fetch` used to live here and was removed on 2026-09-18, because
+# how many pages a RUN should ask for is policy rather than site knowledge
+# (§1) and `page_flow.pages_to_plan` is the one implementation the engines
+# call. What is site knowledge, and stays here, is that the site publishes a
+# counter at all — `total_pages` above — and what that counter means when it
+# is absent.
+#
+# Recorded rather than deleted silently: it was found by grepping every
+# public name for a consumer outside its own module (§17's check #5), which
+# turned it up as a function only its own test still called. A check that
+# exercises something nothing uses passes for the wrong reason.
 
 
 # `<link rel="next">` is published by both listing routes and is CLAUDE.md
@@ -710,6 +708,35 @@ def _has_product_ld(html: str) -> bool:
     return bool(_LD_PRODUCT_RE.search(html or ""))
 
 
+# The status the SITE states in its own error page, for the engine that has
+# no other way to learn it.
+#
+# `driver.get()` returns None and WebDriver exposes no HTTP status at all, so
+# Selenium cannot thread one however carefully the other two do. Rather than
+# leave one engine worse informed than its twins — which is exactly the
+# drift §1 says a shared module exists to prevent — the parser reads the
+# status out of the body where the site states one.
+#
+# Maison KOSE states it in the TITLE of its platform 404: the page is a bare
+# 1,040-byte document reading `404- ページが見つかりません。`, with no site
+# chrome on it at all. Measured 2026-09-18 on `/definitely-not-a-page`.
+#
+# Deliberately narrow. It is anchored to the <title>, and it is only ever
+# consulted AFTER the unambiguous positives (tiles, a Product block) have
+# already failed, so a product whose name happened to start "404-" cannot
+# reach it.
+_STATUS_IN_TITLE_RE = re.compile(r"<title>\s*(\d{3})\s*[-–—]", re.I)
+
+
+def status_from_body(html: str) -> Optional[int]:
+    """The HTTP status the site states in its own error page, or None."""
+    m = _STATUS_IN_TITLE_RE.search(html or "")
+    if not m:
+        return None
+    code = int(m.group(1))
+    return code if 400 <= code <= 599 else None
+
+
 def detect_page_state(html: str, status: Optional[int] = None,
                       url: str = "") -> Tuple[str, Optional[str]]:
     """`(state, detail)` -- the triage every engine shares (CLAUDE.md §1).
@@ -720,7 +747,8 @@ def detect_page_state(html: str, status: Optional[int] = None,
     cannot come back as "blocked" and send the reader hunting for a proxy
     problem.
 
-    States: `content` · `empty` · `challenge` · `blocked` · `unknown`.
+    States: `content` · `empty` · `not_found` · `challenge` · `blocked` ·
+    `unknown`.
     """
     html = html or ""
 
@@ -745,20 +773,29 @@ def detect_page_state(html: str, status: Optional[int] = None,
     if vendor:
         return "challenge", vendor
 
-    # 3. A status the site uses to refuse.
-    if status is not None and status in (401, 403, 429):
-        return "blocked", f"http {status}"
-    if status is not None and status >= 500:
-        return "blocked", f"http {status}"
+    # 3. The address does not exist. A TERMINAL answer, not a failure and not
+    #    a block: retrying it spends a fetch on something that will never be
+    #    there, which is what a discarded status costs. The status is taken
+    #    from the response where an engine could thread one, and from the
+    #    site's own error page where it could not — see `status_from_body`.
+    stated = status if status is not None else status_from_body(html)
+    if stated == 404:
+        return "not_found", "http 404"
 
-    # 4. Built out of the site's own assets, but holding no tiles. That is a
+    # 4. A status the site uses to refuse.
+    if stated is not None and stated in (401, 403, 429):
+        return "blocked", f"http {stated}"
+    if stated is not None and stated >= 500:
+        return "blocked", f"http {stated}"
+
+    # 5. Built out of the site's own assets, but holding no tiles. That is a
     #    page Maison KOSÉ really served: an exhausted tag listing (`?p=5`
     #    returns exactly this), a bogus product code, or a genuinely empty
     #    facet. It is an answer, not a failure.
     if references_own_assets(html) >= _MIN_ASSET_REFERENCES:
         return "empty", "served by the site, no product tiles on it"
 
-    # 5. Not built out of this site's assets and carrying no marker: an
+    # 6. Not built out of this site's assets and carrying no marker: an
     #    interstitial, a proxy's error page, or Chromium's own.
     return "unknown", None
 

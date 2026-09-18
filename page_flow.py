@@ -9,6 +9,7 @@ response:
 
     a listing or product page with its content on it   -> parse
     a page it served with no products on it            -> parse, it is an answer
+    an address that does not exist (HTTP 404)          -> stop, do not retry
     a refusal or a challenge                           -> rotate, or solve
     something that is not a Maison KOSÉ page at all    -> wait, then retry
 
@@ -237,6 +238,15 @@ STATE_POLICY = {
     # EXIT_NO_PRODUCTS rather than EXIT_BLOCKED — reporting it as blocked
     # sends a user hunting for a proxy problem that is not there.
     "empty":     {"retry": False, "solve": False, "blocked": False, "parse": True},
+    # The address does not exist. TERMINAL: a 404 is an answer, and retrying
+    # it spends a fetch on something that will never be there. Not blocked
+    # either — reporting exit 3 would send the reader looking for a proxy
+    # problem when the URL is simply wrong.
+    #
+    # It is its own state rather than folded into `empty` because the two
+    # want different things said: an empty listing is a correct answer ABOUT
+    # THE CATALOGUE, while a 404 is an answer about the ADDRESS.
+    "not_found": {"retry": False, "solve": False, "blocked": False, "parse": False},
     # A refusal with no challenge on it. There is nothing to solve — an edge
     # that declines is not offering a test — so the only move is a different
     # exit. `solve` is False on a state whose name says blocked, and that is
@@ -301,25 +311,36 @@ def pagination_is_addressable(url: str) -> bool:
     return product_parser.is_listing_url(url)
 
 
-def pages_to_plan(pages_requested: int, pages_avail: Optional[int]) -> int:
-    """How many pages to actually fetch.
+def pages_to_plan(pages_requested: int, pages_avail: Optional[int],
+                  start_page: int = 1) -> range:
+    """The ABSOLUTE page numbers a run should fetch, starting at `start_page`.
 
-    Bounded by the site's own counter where it published one. On this site
-    that is not merely thrift: a category listing fetched past its last page
-    returns THAT LAST PAGE AGAIN, byte-identical and HTTP 200, so a run that
-    asked for 50 pages of a 13-page category would fetch page 13 thirty-seven
-    times and hand the deduper 888 rows to throw away.
+    One implementation, in the shared module, because three engines each
+    doing this arithmetic is how three engines come to disagree about where a
+    run ends (§1). Returns a range so a caller cannot get the inclusive bound
+    wrong in its own loop.
+
+    `start_page` is honoured rather than normalised away: a run pointed at
+    `/c/c15_p10/` with `--pages 3` reads 10, 11 and 12. An earlier version
+    reset every run to page 1, so a run aimed at page 10 quietly returned
+    page 1's products and reported success.
+
+    Bounded by the site's own counter where it published one, and on this
+    site that is not merely thrift: a category listing fetched past its last
+    page returns THAT LAST PAGE AGAIN, byte-identical and HTTP 200, so an
+    uncapped `--pages 50` on a 13-page category would fetch page 13
+    thirty-seven times and hand the deduper 888 rows to throw away.
 
     `pages_avail` of None means the site published no counter — which a TAG
-    listing never does — and means unknown, never zero. Capping a tag run at
+    listing never does — and means UNKNOWN, never zero. Capping a tag run at
     zero pages would turn a working route into an empty file.
     """
-    return product_parser.pages_to_fetch(pages_requested, pages_avail)
-
-
-def plan_from_total(pages_requested: int, total: Optional[int]) -> int:
-    """`pages_to_plan`, named for the call site that has the site's counter."""
-    return pages_to_plan(pages_requested, total)
+    if pages_requested <= 0:
+        return range(start_page, start_page)
+    last = start_page + pages_requested - 1
+    if pages_avail:
+        last = min(last, max(pages_avail, start_page))
+    return range(start_page, last + 1)
 
 
 def concurrency_limit(cdp_endpoint: Optional[str]) -> Optional[int]:

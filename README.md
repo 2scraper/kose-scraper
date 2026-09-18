@@ -221,6 +221,25 @@ page's JavaScript has run). The extra links are carousel banners. Rows come
 from tiles; the link count is only used to tell a broken parser apart from an
 empty category.
 
+**A 404 and an empty page are different answers, and the site gives both.**
+A bogus goods code or category id (`/site/x/g/gZZZZZZ/`, `/c/c99999/`)
+answers HTTP **200** with the site's full chrome and no tiles — that is an
+answer about the CATALOGUE. A wrong PATH answers a real **404** with a bare
+1,040-byte page carrying no site chrome at all, and the scraper stops on it
+rather than retrying: retrying spends the budget on an address that will
+never exist. The bare tag-facet URL (`/site/itemtags/list.aspx` with no
+`tags=`) is the one this scraper accepts that really does 404.
+
+Selenium cannot read an HTTP status — WebDriver exposes none — so the parser
+also reads the status the site states in its own `<title>404- …`. That is
+what makes all three engines agree instead of two being better informed than
+the third.
+
+**A run pointed at page 10 reads page 10.** `--url .../c15_p10/ --pages 3`
+fetches 10, 11 and 12; the start page is honoured rather than normalised
+back to 1. The `page` column is the run's own index, so the sidecar's
+`start_url` is what says where a run began.
+
 **Zero is a real price and a real rank.** Prices reach six figures —
 ¥264,000 for one cream — so a parser that mishandles the comma turns that
 into 264. Every fixture in the suite pins the value, not the coverage.

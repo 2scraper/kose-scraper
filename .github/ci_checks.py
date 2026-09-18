@@ -91,16 +91,41 @@ HEX32_ALLOWED = ("sha", "hash", "nonce", "example", "md5", "digest",
 SCANNED_SUFFIXES = (".py", ".md", ".txt", ".yml", ".yaml", ".example")
 
 
+# Directory names that are never this repo's own source.
+_SKIP_NAMES = {".git", "__pycache__", "node_modules", ".pytest_cache",
+               ".mypy_cache", "site-packages", "dist-info", "build", "dist"}
+
+
+def _is_inside_a_virtualenv(path):
+    """True when `path` lives under a Python virtual environment.
+
+    Detected STRUCTURALLY — a `pyvenv.cfg` beside it, or a `site-packages`
+    component in its path — rather than by directory name, because the name
+    is the user's to choose. An earlier version skipped `.venv*`, `venv` and
+    `env`, which is most of the names people use and therefore looked fine:
+    it took a clone that followed this repo's own README with the venv called
+    `.v` to fail, on a 32-hex string inside pip's vendored
+    `packaging/_elffile.py`.
+
+    That is CLAUDE.md §21's failure exactly — a check that fails on a
+    legitimate tree is a check nobody can read, and it fails for everyone but
+    the person who chose the blessed name.
+    """
+    for parent in path.parents:
+        if parent == REPO.parent:
+            break
+        if (parent / "pyvenv.cfg").exists():
+            return True
+    return "site-packages" in path.parts
+
+
 def scanned_files():
     for path in sorted(REPO.rglob("*")):
         if not path.is_file() or path.suffix not in SCANNED_SUFFIXES:
             continue
-        # `.venv-playwright` and friends are real directory names here — the
-        # README tells users to make one venv per engine (§6), so a scan that
-        # only skips the exact name `.venv` walks into vendored test data and
-        # fails on somebody else's fixture URLs.
-        if any(part.startswith(".venv") or part in {".git", "__pycache__", "venv"}
-               for part in path.parts):
+        if any(part in _SKIP_NAMES for part in path.parts):
+            continue
+        if _is_inside_a_virtualenv(path):
             continue
         yield path
 

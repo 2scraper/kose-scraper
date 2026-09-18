@@ -2253,6 +2253,57 @@ def _import_graph(entrypoint):
                 queue.append(node.module.split(".")[0])
     return seen
 
+def check_the_credential_scan_skips_a_virtualenv_whatever_it_is_called():
+    """A venv is detected structurally, not by directory name.
+
+    Found by cloning this repo fresh and following its own README with the
+    environment called `.v`: pip's vendored `packaging/_elffile.py` carries a
+    32-hex string, so the credential scan failed on a perfectly clean clone.
+    A name-based skip list covers the names its author happened to think of
+    and fails for everyone else — CLAUDE.md §21's "a check that fails on its
+    own repository is a check nobody can read", one step out.
+
+    The control matters as much as the check (§22): the fixture below is
+    built so that WITHOUT the fix it really would fail, which is asserted
+    rather than assumed.
+    """
+    sys.path.insert(0, os.path.join(HERE, ".github"))
+    try:
+        import ci_checks
+    except ImportError as e:
+        skip("ci_checks", str(e))
+        return
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = os.path.join(tmp, "repo")
+        os.makedirs(os.path.join(root, "weirdname", "lib", "python3.13",
+                                 "site-packages", "pip"))
+        # A venv is what it is because of this file, not because of its name.
+        open(os.path.join(root, "weirdname", "pyvenv.cfg"), "w").write(
+            "home = /usr/bin\nversion = 3.13.5\n")
+        planted = os.path.join(root, "weirdname", "lib", "python3.13",
+                               "site-packages", "pip", "vendored.py")
+        # The shape the scan is looking for, in a file that is not ours.
+        open(planted, "w").write("MAGIC = '%s'\n" % ("a1b2c3d4" * 4))
+        open(os.path.join(root, "mine.py"), "w").write("x = 1\n")
+
+        before = ci_checks.REPO
+        try:
+            ci_checks.REPO = __import__("pathlib").Path(root)
+            found = sorted(str(p.relative_to(root)) for p in ci_checks.scanned_files())
+            equal("only the repo's own file is scanned", found, ["mine.py"])
+            # The control: the planted file really is there and really does
+            # carry the shape, so a scan that did NOT skip it would fail.
+            check("the control is real — the planted file exists",
+                  os.path.exists(planted))
+            check("...and really carries a 32-hex string",
+                  bool(ci_checks.HEX32.findall(open(planted).read())))
+            equal("the credential scan is therefore clean",
+                  ci_checks.secret_check(), [])
+        finally:
+            ci_checks.REPO = before
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 

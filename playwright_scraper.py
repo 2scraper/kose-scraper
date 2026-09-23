@@ -204,12 +204,12 @@ CORE_FIELDS = ("title", "url", "sku", "brand", "currency")
 
 # The share of rows that must carry a usable price before the run is worth
 # trusting as a PRICE run rather than merely as a catalogue listing. Both
-# `jsonld` and `dom_range` count — a range is a real, labelled number — so
-# this fires on a parsing break, not on the site's own variety.
+# `tile` and `jsonld` count, so this fires on a parsing break, not on the
+# site's own variety.
 PRICE_COVERAGE_FLOOR = 95
 
 # A page holding less than this share of the page size is reported as thin.
-# The size is the site's own `sz`, echoed back as `data-page-size`, and every
+# The size is the site's fixed 24 (`product_parser.PAGE_SIZE`), and every
 # captured full page held exactly it — so the only legitimately short page is
 # the last one of a listing, which is why this can sit high without false
 # alarms.
@@ -233,8 +233,8 @@ def _driver(page):
     # There is no scroll primitive here, and its absence is measured rather
     # than forgotten (§8: missing content is one of three things, so check
     # which before "fixing" it). Maison KOSÉ SERVER-RENDERS its grid: a plain
-    # HTTP fetch with no JavaScript at all returns the full JSON-LD ItemList
-    # of 24 products and 49 `data-pid` attributes. Everything the parser
+    # HTTP fetch with no JavaScript at all returns every `li.c-product__item`
+    # tile of the page (24 on a full one). Everything the parser
     # wants is in the document before any scrolling could happen, on every
     # capture, so a scroll would be ceremony that looks load-bearing.
     return {
@@ -818,10 +818,10 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
 
         # This site server-renders its grid, so a listing is parseable in
         # the FIRST response and there is nothing to wait for on a healthy
-        # page. Measured 2026-09-17 with no JavaScript executed at all — a
-        # plain HTTP fetch — /en-fi/bags/backpacks returned the full JSON-LD
-        # ItemList of 24 products and 49 `data-pid` attributes, and a product
-        # page returned its whole 16-entry ProductGroup. That is why this
+        # page. Measured 2026-09-18 with no JavaScript executed at all — a
+        # plain HTTP fetch of /site/cosmedecorte/c/c15_p3/ returned the whole
+        # 90,310-byte page with its tiles, and a product page carries its one
+        # JSON-LD `Product` block in the same way. That is why this
         # engine has no scroll step and no readiness pause on the happy path:
         # either would be ceremony that looks load-bearing.
         #
@@ -872,7 +872,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
 
         if not page_flow.should_retry(state):
             # "content" and "empty" are both final answers. An empty page is
-            # a CORRECT one — a hub category has no grid, and one page past
+            # a CORRECT one — a bogus category id is served with no tiles, and one page past
             # the end of a listing has no products — so retrying it would
             # spend the user's budget re-confirming the same right answer,
             # and rotating the exit would blame an address for the URL it was
@@ -922,13 +922,15 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         # two have different remedies and only one of them is about the
         # address:
         #
-        #   a page that is not this site's        — the exit is scored, or
-        #                                           something is intercepting.
-        #                                           A different exit.
-        #   nothing at all (the stream was reset) — the edge refused the
-        #                                           REQUEST, and on this site
-        #                                           that is a User-Agent
-        #                                           denylist, not the address.
+        #   a page that is not this site's        — something between here
+        #                                           and the site is
+        #                                           intercepting, or the exit
+        #                                           is scored. A different
+        #                                           exit.
+        #   nothing at all (the stream was reset) — the network path. On
+        #                                           this site no refusal of
+        #                                           any kind has been
+        #                                           observed (README).
         #
         # Saying which one arrived is more use than a captcha hint that would
         # cost money for a page carrying no widget.
@@ -939,13 +941,13 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         logger.error(
             "Maison KOSE did not serve this request — %d bytes, its own asset "
             "host referenced %d time(s), saved to %s. There is no widget on "
-            "it, so no key would help. Note what this is NOT: an ordinary "
-            "datacenter address is served normally by this site (measured "
-            "2026-09-17 from a Hetzner IP — listings, search and product "
-            "pages all HTTP 200, no proxy, no key), so a refusal here is "
-            "unusual rather than expected. Check the User-Agent first — the "
-            "edge refuses `curl`, `python-requests` and friends outright — "
-            "then try a different exit with --proxy or --cdp-endpoint. This "
+            "it, so no key would help. Nothing on this site has ever "
+            "produced this state: measured 2026-09-18 from a datacentre "
+            "address, a request with NO User-Agent at all is served the same "
+            "90,310 bytes as a browser, and 12 pages back to back were "
+            "12 x HTTP 200. So the first thing to check is the network path "
+            "— a proxy, a captive portal, or DNS — then try a different exit "
+            "with --proxy or --cdp-endpoint. This "
             "is exit 3, distinct from a genuinely empty result (exit 4).%s",
             len(html or ""), assets, debug_html,
             (f" Tried {block_retries + 1} exit(s)." if has_pool
@@ -980,9 +982,9 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # is the "detected is not blocking" rule the captcha default follows,
     # applied to the blocking decision instead of the spending one. But
     # `state != "content"` is still too wide: an EMPTY page is a correct
-    # answer, and a live run of a /p/<slug> hub reported exit 3 on a 191 KB
-    # page the site had plainly served, because the hub's own performance
-    # script names `akamaihd.net` and "akamai" was in the marker list. Both
+    # answer, and a live run of tokopedia-scraper's /p/<slug> hub reported
+    # exit 3 on a 191 KB page that site had plainly served, because its own
+    # performance script names `akamaihd.net` and "akamai" was in the marker list. Both
     # halves were wrong; the marker is gone (see
     # product_parser.BOT_CHALLENGE_MARKERS) and this now only refines the
     # REASON for a page the policy had already given up on.
@@ -1045,8 +1047,8 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             "Page %d links to %d product(s) and parsed to ZERO rows. "
             "The site served this page — this is a failure in THIS parser, "
             "not an empty category and not a block. Saved to %s; the first "
-            "thing to check is the JSON-LD (an ItemList that was renamed or "
-            "dropped), then the tile markup. Reported as stop_reason "
+            "thing to check is the tile markup (li.c-product__item and its "
+            "/g/g{SKU}/ link) — a listing carries no JSON-LD. Reported as stop_reason "
             "'parser_found_nothing' so it cannot be read as a complete run.",
             page_num, links, dump)
         outcome.state = "parse_failed"
@@ -1056,10 +1058,10 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         # gets the number rather than a threshold someone guessed.
         images = sum(1 for row in products if row.image_url)
         if images < len(products):
-            logger.info("Page %d: %d/%d rows carry an image. This site's own "
-                        "ItemList sometimes names a product it renders no "
-                        "tile for, and those entries have no image in the "
-                        "JSON-LD either — so this is reported, not floored.",
+            logger.info("Page %d: %d/%d rows carry an image. This site's "
+                        "tiles carry a /img/goods/ thumbnail on every "
+                        "measured page (171 of 171 in the captures), so a "
+                        "gap here points at the tile markup.",
                         page_num, images, len(products))
 
         for field_name in CORE_FIELDS:
@@ -1087,7 +1089,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
 
         if args.mode == "product":
             group = {row.variant_of for row in products if row.variant_of}
-            logger.info("Product: %d variant(s) of %s, %d priced.",
+            logger.info("Product: %d row(s) for %s, %d priced.",
                         len(products), next(iter(group), products[0].sku),
                         sum(1 for r in products if r.price is not None))
         else:
@@ -1202,8 +1204,7 @@ def scrape(args) -> int:
     outcomes: List[PageOutcome] = []
     seen_keys = set()
     blocked = False
-    # All three modes are one row per business-at-a-location, so `sku` is the
-    # key for all of them.
+    # Both modes are one row per product, so `sku` is the key for both.
     dedupe_key = "sku"
     # Why the loop ended. "completed" means every requested page was fetched;
     # "no_new_products" means the listing itself ran out (also a complete
@@ -1213,15 +1214,14 @@ def scrape(args) -> int:
     # "page_cap_reached" means the run asked for more pages than the
     # category holds and was clamped to the site's own count. On this site
     # that is a COMPLETE result in the strong sense: this site imposes no cap
-    # of its own, so the clamp IS the whole category — 280 results across 12
-    # pages of 24, and start=288 is a served, empty grid.
+    # of its own, so the clamp IS the whole category — /c/c15/ states 13
+    # pages, and 12 x 24 + 16 = 304 is all of Cosme Decorte.
     #
-    # Only --mode product is single-page. Both listing modes paginate
-    # identically — the same `start`/`sz` on the same URL — so neither may be
+    # Only --mode product is single-page. Both listing routes paginate —
+    # `_pN` on a category, `?p=N` on a tag listing — so neither may be
     # treated as single-page, which is the silent-success failure this family
-    # exists to avoid. Note that "single page" is a statement about FETCHING:
-    # --mode product still emits one row per variant, so a one-page run of a
-    # sixteen-nib pen is sixteen rows.
+    # exists to avoid. On this site one product page is also one row: a
+    # single `Product` block, never a `ProductGroup`.
     stop_reason = "single_page_mode" if args.mode == "product" else "completed"
 
     pool = proxy_pool_from_args(args)
@@ -1235,7 +1235,7 @@ def scrape(args) -> int:
     if concurrency > 1:
         if args.mode == "product":
             logger.info("--concurrency is ignored in --mode product: there is "
-                        "one page to fetch (however many variants it holds).")
+                        "one page to fetch, and it is one row.")
             concurrency = 1
         elif page_flow.concurrency_limit(args.cdp_endpoint) == 1:
             # The limit is page_flow's to state, not this engine's, so all
@@ -1424,9 +1424,8 @@ def scrape(args) -> int:
     # where a short page hides.
     #
     # NOT "pages x rows-per-page" as a hard expectation, even though the
-    # page size is the run's own `sz`: the LAST page of a listing is
-    # legitimately short — /en-fi/writing-instruments ends 240 + 24 + 16 =
-    # 280 — and a threshold that fires on every healthy run teaches the
+    # page size is the site's fixed 24: the LAST page of a listing is
+    # legitimately short — /c/c15/ ends 12 x 24 + 16 = 304 — and a threshold that fires on every healthy run teaches the
     # reader to ignore it. What is worth warning about is a page that came
     # back materially THIN against its siblings, which is what a truncated
     # response looks like.
@@ -1541,14 +1540,14 @@ def parse_args():
                         "asked for.")
     p.add_argument("--pages", type=int, default=1,
                    help="Number of listing pages to fetch. Applies to --mode "
-                        "category and --mode search; ignored in --mode "
-                        "product. Page 1 prints the catalogue's own result "
-                        "count, so a run PLANS against the site's arithmetic "
-                        "rather than walking off the end. There is no page "
-                        "cap on this site — asking past the last page is a "
-                        "served, empty grid rather than an error — so a "
-                        "request is limited only by what the category holds, "
-                        "and the sidecar records both numbers.")
+                        "listing; ignored in --mode product. A category "
+                        "page prints the site's own page counter, so a run "
+                        "PLANS against the site's arithmetic rather than "
+                        "walking off the end — past its last page a category "
+                        "serves that last page again. There is no page cap "
+                        "on this site, so a request is limited only by what "
+                        "the category holds, and the sidecar records both "
+                        "numbers.")
     p.add_argument("--delay", type=float, default=2.0, help="Delay between pages, seconds")
     p.add_argument("--concurrency", type=int, default=1, metavar="N",
                    help="Fetch pages through N parallel workers (default 1 — "
@@ -1560,7 +1559,7 @@ def parse_args():
                    help="Attempts per page load before giving up (default 3). "
                         "The pause between attempts doubles each time. A page "
                         "that comes back EMPTY is not retried — see "
-                        "page_flow.STATE_POLICY — because a hub page with no "
+                        "page_flow.STATE_POLICY — because a category with no "
                         "products on it is a correct answer, not a fault.")
     p.add_argument("--retry-delay", type=float, default=2.0,
                    help="Seconds before the first page-load retry, doubling "
@@ -1646,7 +1645,7 @@ def parse_args():
     p.add_argument("--dump-html", default=None, metavar="PATH",
                    help="Save the exact HTML the parser is given, on success as "
                         "well as failure. Useful when the row count is right but "
-                        "a column comes back empty — see TROUBLESHOOTING.md.")
+                        "a column comes back empty — see the README's 'Traps that look like bugs'.")
     p.add_argument("--headless", action="store_true", default=True)
     p.add_argument("--headful", dest="headless", action="store_false")
     args = p.parse_args()

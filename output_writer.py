@@ -11,11 +11,11 @@ Two modes, one row shape
 
 Both yield the SAME class. Maison KOSÉ publishes one leaf — a PRODUCT — and a
 listing is a way of SELECTING products while a detail page is one product
-described more fully. Unlike Montblanc, "more fully" here is NOT more rows: a
-Kosé product page publishes a single `Product` block, never a `ProductGroup`
-with `hasVariant`, so `--mode product` emits exactly one row per page. What it
-adds is columns a tile does not carry — `subcategory`, `volume`,
-`colour_count`, `release_date` — plus a structured price and availability
+described more fully. Unlike montblanc-scraper's site, "more fully" here is
+NOT more rows: a Kosé product page publishes a single `Product` block, never a
+`ProductGroup` with `hasVariant`, so `--mode product` emits exactly one row
+per page. What it adds is columns a tile does not carry — `subcategory`,
+`volume`, `colour_count`, `release_date` — plus a structured price and availability
 straight from the site's own JSON-LD.
 
 The two listing ROUTES are one mode and not two, because they return the
@@ -533,8 +533,8 @@ def save(rows: Sequence[Any], out_prefix: str, fmt: str,
 # Planning against it is not merely an optimisation on this site, which is
 # the part worth remembering. Walking off the end of a category returns the
 # LAST PAGE AGAIN — byte-identical, HTTP 200, forever — rather than the empty
-# grid Montblanc returns or the HTTP 500 that the same overshoot produces on
-# BBB. A run that trusted "keep going until a page is empty" would never
+# grid montblanc-scraper's site returns or the HTTP 500 that the same
+# overshoot produces for bbb-scraper. A run that trusted "keep going until a page is empty" would never
 # terminate. A TAG listing does end with an empty page, so the two routes
 # want the same data-based stop for opposite reasons.
 #

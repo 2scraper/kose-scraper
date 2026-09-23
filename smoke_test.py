@@ -1357,7 +1357,7 @@ def check_fingerprint_kwargs_are_ones_the_driver_accepts():
 
 def check_engines_do_not_evaluate_a_string_in_the_browser():
     """§18: a site whose CSP omits `unsafe-eval` kills wait_for_function with
-    an EvalError and takes the run down with exit 1. BBB has not been
+    an EvalError and takes the run down with exit 1. Maison KOSÉ has not been
     measured for that, and the cheap habit costs nothing where it would have
     been allowed."""
     for module in ENGINES:
@@ -1460,7 +1460,7 @@ def check_a_run_that_finds_nothing_writes_nothing():
         equal("--allow-empty WRITES the empty file...", 
               json.load(open(prefix + ".json", encoding="utf-8")), [])
         # ...and still reports exit 4. Pinned deliberately (§10: pin a known
-        # behaviour rather than half-guarding it): "zero businesses" is true
+        # behaviour rather than half-guarding it): "zero products" is true
         # whether or not the file was written, and a caller that wanted the
         # file still wants to know the result was empty.
         equal("...and still reports exit 4, because it IS empty", code, 4)
@@ -1837,16 +1837,14 @@ def check_engine_flag_sets():
 def check_banned_and_removed_flags():
     """Scoped to the ENGINES.
 
-    `--country` is absent here — the flag CLAUDE.md §10 bans outright — and
-    `--locale` takes its place, because on Montblanc the market really is a
-    property of the URL rather than of the browser.
+    `--country` is absent here — the flag CLAUDE.md §10 bans outright,
+    because it could disagree with the URL. `--locale` is absent too:
+    maison.kose.co.jp is one market (see EXTRA_FLAGS above).
 
-    That makes the ban's REASON bite harder than usual: the locale is a path
-    segment, so a `--locale` that disagreed with a `--url` would silently
-    read a different market, and on this site a different market is a
-    different PRICE (EUR 2000 on en-fi against EUR 1900 on de-de for one
-    backpack). So the flag is refused alongside --url rather than merged,
-    and this check pins that refusal exists in every engine.
+    The same reasoning applies to the flags this repo DOES have: `--tags`
+    and `--category` each build an address, so a `--tags` given alongside
+    `--url` is refused rather than merged, and `--category` takes only a
+    cNN id. This check pins both refusals in every engine.
     """
     for module in ENGINES:
         path = os.path.join(HERE, module + ".py")
@@ -1983,9 +1981,9 @@ def check_captcha_capability_claims_match_the_code():
     # The pairing that matters ON THIS SITE.
     #
     # The sibling repo pins "the README must say TurnstileTaskProxyless is
-    # not built here", because BBB renders Cloudflare Managed Challenges and
-    # a reader could reasonably expect a key to clear one. Montblanc renders
-    # NO challenge at all, so the equivalent hazard is the opposite one: this
+    # not built here", because that site renders Cloudflare Managed
+    # Challenges and a reader could reasonably expect a key to clear one.
+    # Maison KOSÉ renders NO challenge at all, so the equivalent hazard is the opposite one: this
     # README's central claim is that no key is needed, and a claim like that
     # rots the moment the site switches a bot manager on.
     #
@@ -2152,7 +2150,7 @@ def check_parser_found_nothing_is_not_a_complete_run():
           list(COMPLETE_STOP_REASONS))
     meta = run_meta(status="failed", stop_reason="parser_found_nothing",
                     pages_requested=1, pages_completed=0, pages_failed=[1],
-                    products=0, mode="category", source="montblanc.com",
+                    products=0, mode="listing", source="maison.kose.co.jp",
                     start_url="u", final_url="u")
     equal("parse-failure: the sidecar carries the reason by name",
           meta["stop_reason"], "parser_found_nothing")
@@ -2173,23 +2171,27 @@ def check_parser_found_nothing_is_not_a_complete_run():
 
 def check_sidecar_shape():
     from output_writer import run_meta
+    # /c/c15/ states 13 pages and 12 x 24 + 16 = 304 products is all of
+    # Cosme Decorte (measured 2026-09-18, see output_writer).
     meta = run_meta(status="complete", stop_reason="page_cap_reached",
-                    pages_requested=50, pages_completed=12, pages_failed=[],
-                    products=280, mode="category", source="montblanc.com",
-                    start_url="https://www.montblanc.com/en-fi/writing-instruments",
-                    final_url="https://www.montblanc.com/en-fi/writing-instruments?start=264&sz=24",
-                    extra={"total_results": 280, "pages_available": 12,
-                           "page_size": 24, "locale": "en-fi",
-                           "sort_requested": "price-asc",
-                           "site_default_sort": "recommended"})
+                    pages_requested=50, pages_completed=13, pages_failed=[],
+                    products=304, mode="listing", source="maison.kose.co.jp",
+                    start_url="https://maison.kose.co.jp/site/cosmedecorte/c/c15/",
+                    final_url="https://maison.kose.co.jp/site/cosmedecorte/c/c15_p13/",
+                    extra={"pages_available": 13, "page_size": 24,
+                           "canonical_url": "https://maison.kose.co.jp/site/cosmedecorte/c/c15/",
+                           "route": "category"})
     for key in ("status", "stop_reason", "pages_requested", "pages_completed",
                 "pages_failed", "mode", "source"):
         check("the sidecar records %r" % key, key in meta)
-    equal("the sidecar carries the site's own total", meta["total_results"], 280)
-    equal("...and the market the prices belong to", meta["locale"], "en-fi")
-    equal("...and which ordering was asked for", meta["sort_requested"], "price-asc")
-    equal("...and what a visitor would have got instead",
-          meta["site_default_sort"], "recommended")
+    equal("the sidecar carries the site's own page count",
+          meta["pages_available"], 13)
+    equal("...and the page size it applied", meta["page_size"], 24)
+    equal("...and the page the SITE says was read", meta["canonical_url"],
+          "https://maison.kose.co.jp/site/cosmedecorte/c/c15/")
+    equal("...and which listing route it was", meta["route"], "category")
+    # No `locale` and no `sort_requested`: one market, no ordering control.
+    check("no locale on a one-market site", "locale" not in meta, sorted(meta))
     equal("pages_failed is a LIST of numbers, not a count",
           isinstance(meta["pages_failed"], list), True)
 
@@ -2205,7 +2207,7 @@ def check_row_schema():
     equal("the family prefix is byte-identical and in order (§9)",
           names[:5], ["source", "scraped_at", "url", "sku", "title"])
 
-    # The commerce columns this site DOES have. Montblanc is a shop, so the
+    # The commerce columns this site DOES have. Maison KOSÉ is a shop, so the
     # family's price fields are present rather than dropped.
     for present in ("brand", "price", "currency", "in_stock", "image_url",
                     "category", "price_source"):
@@ -2242,7 +2244,7 @@ def check_fixtures_carry_no_session_material():
     of that granted anything — the session material was anonymous and
     expired — and it still did not belong in a public repo.
 
-    Montblanc is the easy case: it publishes products, not people, and no
+    Maison KOSÉ is the easy case: it publishes products, not people, and no
     capture here carries a name, a review or a login. So this guards the
     SHAPE rather than any literal, which is the half that keeps working when
     the next capture is taken (§10: guard with PATTERNS, not the old

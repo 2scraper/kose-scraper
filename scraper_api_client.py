@@ -309,8 +309,8 @@ def parse_args():
     p.add_argument("--mode", choices=["listing", "product"],
                    default="listing",
                    help="Same two modes as the browser engines, and the "
-                        "same default. product emits one row per variant out "
-                        "of the page's ProductGroup.")
+                        "same default. product emits ONE row: a Kose product "
+                        "page publishes a single Product block.")
     p.add_argument("--category", default=None, help="Label to tag output rows with. Defaults to the category segment of the URL, so the column is never empty just because the flag was omitted.")
     p.add_argument("--format", choices=["json", "csv", "both"], default="both")
     p.add_argument("--out", default="kose_products_scraperapi", help="Output file prefix")

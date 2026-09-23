@@ -85,7 +85,7 @@ MIN_CARD_MATCHES = 2
 # measured page — so a class-only anchor would report a listing as ready on a
 # product page. Measured across 14 captures: `li.c-product__item` counts
 # 11-24 on every listing and **0 on every product page**, which is the clean
-# separation Montblanc's `.product-tile` did not have.
+# separation montblanc-scraper's `.product-tile` did not have.
 READY_SELECTOR_LISTING = "li.c-product__item"
 
 # A product page's readiness anchor: 1 on every product capture, 0 on every

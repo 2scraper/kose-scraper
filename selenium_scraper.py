@@ -96,13 +96,13 @@ CORE_FIELDS = ("title", "url", "sku", "brand", "currency")
 # — 100% coverage of the wrong value, which is exactly the failure §10 means
 # by "assert VALUES on real fixtures, not coverage".
 
-# The share of rows that must carry a usable price. Both `jsonld` and
-# `dom_range` count, so this fires on a parsing break rather than on the
+# The share of rows that must carry a usable price. Both `tile` and
+# `jsonld` count, so this fires on a parsing break rather than on the
 # site's own variety.
 PRICE_COVERAGE_FLOOR = 95
 
 # A page holding less than this share of the page size is reported as thin.
-# The size is the site's own `sz`, so the only legitimately short page is the
+# The size is the site's fixed 24, so the only legitimately short page is the
 # last one of a listing.
 THIN_PAGE_SHARE = 0.6
 
@@ -239,9 +239,9 @@ class _Session:
         options.add_argument("--disable-blink-features=AutomationControlled")
         # Flag parity with the Playwright engine, and really applied rather
         # than accepted and ignored: Chrome takes the locale as --lang. It
-        # does NOT decide which market is read — that is the locale in
-        # find_country in the URL — so this only affects what the browser
-        # claims about itself.
+        # does NOT decide which market is read — this site is one Japanese
+        # market — so this only affects what the browser claims about
+        # itself.
         options.add_argument(f"--lang={BROWSER_LOCALE}")
 
         if self.pool:
@@ -673,7 +673,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
 
         if not page_flow.should_retry(state):
             # "content" and "empty" are both final answers. An empty page is
-            # a CORRECT one — a hub category has no grid — so retrying it
+            # a CORRECT one — a bogus category id is served with no tiles — so retrying it
             # would re-confirm the same right answer, and rotating the exit
             # would blame an address for the URL it was given.
             break
@@ -716,7 +716,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             "limits. This is exit 3, distinct from a genuinely empty result "
             "(exit 4).",
             len(html or ""), references_own_assets(html or ""), debug_html)
-        outcome.blocked_by = "cloudflare (hard block)" if html else "no-response"
+        outcome.blocked_by = "edge refusal" if html else "no-response"
         outcome.final_url = d["current_url"]()
         return outcome
 
@@ -737,9 +737,10 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # --cdp-endpoint the Scraping Browser's own auto-solve extension injects
     # such markers into every page it loads.
     # Only for a state page_flow already counts as BLOCKED. An EMPTY page is
-    # a correct answer, and a live run of a /p/<slug> hub reported exit 3 on
-    # a page the site had plainly served because the hub's own performance
-    # script names `akamaihd.net`. Mirrors playwright_scraper exactly.
+    # a correct answer, and a live run of tokopedia-scraper's /p/<slug> hub
+    # reported exit 3 on a page that site had plainly served because its own
+    # performance script names `akamaihd.net`. Mirrors playwright_scraper
+    # exactly.
     vendor = (detect_bot_challenge(html, url=d["current_url"]())
               if page_flow.counts_as_blocked(state) else None)
     if vendor:
@@ -794,8 +795,8 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             "Page %d links to %d product(s) and parsed to ZERO rows. "
             "The site served this page — this is a failure in THIS parser, "
             "not an empty category and not a block. Saved to %s; the first "
-            "thing to check is the JSON-LD (an ItemList that was renamed or "
-            "dropped), then the tile markup. Reported as stop_reason "
+            "thing to check is the tile markup (li.c-product__item and its "
+            "/g/g{SKU}/ link) — a listing carries no JSON-LD. Reported as stop_reason "
             "'parser_found_nothing' so it cannot be read as a complete run.",
             page_num, links, dump)
         outcome.state = "parse_failed"
@@ -803,10 +804,10 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     if products:
         images = sum(1 for row in products if row.image_url)
         if images < len(products):
-            logger.info("Page %d: %d/%d rows carry an image. This site's own "
-                        "ItemList sometimes names a product it renders no "
-                        "tile for, and those entries have no image in the "
-                        "JSON-LD either — so this is reported, not floored.",
+            logger.info("Page %d: %d/%d rows carry an image. This site's "
+                        "tiles carry a /img/goods/ thumbnail on every "
+                        "measured page (171 of 171 in the captures), so a "
+                        "gap here points at the tile markup.",
                         page_num, images, len(products))
 
         for field_name in CORE_FIELDS:
@@ -833,7 +834,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
 
         if args.mode == "product":
             group = {row.variant_of for row in products if row.variant_of}
-            logger.info("Product: %d variant(s) of %s, %d priced.",
+            logger.info("Product: %d row(s) for %s, %d priced.",
                         len(products), next(iter(group), products[0].sku),
                         priced)
         else:
@@ -1026,7 +1027,7 @@ def scrape(args) -> int:
                  "route": route_of(final_url or args.url),
                  "tags": tags_from_url(final_url or args.url)}
         # No `capped_by_site` / `reachable_max`: this site imposes no page
-        # cap (measured — 280 results, 240 + 24 + 16 = 280), so
+        # cap (measured — /c/c15/ states 13 pages, 12 x 24 + 16 = 304), so
         # `pages_available` already says everything they would, and
         # pages x page_size would OVERSTATE a short last page.
 
@@ -1080,14 +1081,14 @@ def parse_args():
                         "asked for.")
     p.add_argument("--pages", type=int, default=1,
                    help="Number of listing pages to fetch. Applies to --mode "
-                        "category and --mode search; ignored in --mode "
-                        "product. Page 1 prints the catalogue's own result "
-                        "count, so a run PLANS against the site's arithmetic "
-                        "rather than walking off the end. There is no page "
-                        "cap on this site — asking past the last page is a "
-                        "served, empty grid rather than an error — so a "
-                        "request is limited only by what the category holds, "
-                        "and the sidecar records both numbers.")
+                        "listing; ignored in --mode product. A category "
+                        "page prints the site's own page counter, so a run "
+                        "PLANS against the site's arithmetic rather than "
+                        "walking off the end — past its last page a category "
+                        "serves that last page again. There is no page cap "
+                        "on this site, so a request is limited only by what "
+                        "the category holds, and the sidecar records both "
+                        "numbers.")
     p.add_argument("--delay", type=float, default=2.0, help="Delay between pages, seconds")
     p.add_argument("--concurrency", type=int, default=1, metavar="N",
                    help="Fetch pages through N parallel workers (default 1 — "
@@ -1099,7 +1100,7 @@ def parse_args():
                    help="Attempts per page load before giving up (default 3). "
                         "The pause between attempts doubles each time. A page "
                         "that comes back EMPTY is not retried — see "
-                        "page_flow.STATE_POLICY — because a hub page with no "
+                        "page_flow.STATE_POLICY — because a category with no "
                         "products on it is a correct answer, not a fault.")
     p.add_argument("--retry-delay", type=float, default=2.0,
                    help="Seconds before the first page-load retry, doubling "
@@ -1185,7 +1186,7 @@ def parse_args():
     p.add_argument("--dump-html", default=None, metavar="PATH",
                    help="Save the exact HTML the parser is given, on success as "
                         "well as failure. Useful when the row count is right but "
-                        "a column comes back empty — see TROUBLESHOOTING.md.")
+                        "a column comes back empty — see the README's 'Traps that look like bugs'.")
     p.add_argument("--headless", action="store_true", default=True)
     p.add_argument("--headful", dest="headless", action="store_false")
     args = p.parse_args()

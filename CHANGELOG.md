@@ -8,6 +8,45 @@ as a CLI toolkit can. A **patch** release means fixes; it does not promise
 that every flag and default is frozen. Where a patch changes behaviour an
 existing user would notice, the release notes lead with it.
 
+## [Unreleased]
+
+### Fixed
+
+Leftovers from the sibling repos this one was bootstrapped from
+(montblanc-scraper, bbb-scraper, etsy-scraper), which described those sites
+as if they were this one.
+
+- **User-visible strings.** `--pages` help named a `--mode category` and
+  `--mode search` this repo does not have and said a category past its end is
+  "a served, empty grid" (here it re-serves its last page). The Playwright
+  blocked-page error said this site's edge "refuses `curl`, `python-requests`
+  and friends outright", the opposite of what the README measured; it now
+  matches the other two engines. The parse-failure error pointed at a JSON-LD
+  `ItemList` a listing here does not carry; the image-coverage log line
+  described that same `ItemList`; `--mode product` logs and `--help` spoke of
+  variants and a `ProductGroup`; `--retries` help spoke of hub pages;
+  `--dump-html` help pointed at a `TROUBLESHOOTING.md` that does not exist.
+- **Engines agree on the refusal reason.** pyppeteer and Selenium recorded a
+  refusal as `blocked_cloudflare (hard block)`, a vendor never observed here,
+  while Playwright recorded `blocked_edge refusal`. All three now say
+  `edge refusal`.
+- **`diff_runs.py` tracked Montblanc's columns** (`collection`,
+  `sub_collection`, `color`, `size`, `special_edition`, `base_sku`), none of
+  which exist in this row model. It now tracks this site's own `tax_rate` and
+  `subcategory`, and treats `subcategory` / `variant_of` as product-mode-only.
+- **Issue templates** were Etsy's (DataDome, `shop_rating`, an etsy.com
+  example URL). Rewritten from this repo's README.
+- **Donor prose in core modules and comments:** the BBB Turnstile paragraphs
+  in `captcha_solver.py`, Montblanc URLs and counts in the engines, BBB's
+  `find_country` in two locale comments, and an unnamed tokopedia hub
+  anecdote now credited to tokopedia-scraper.
+- **Test data:** `smoke_test.py` built its sidecar fixtures from a
+  montblanc.com run; they now use this site's measured `/c/c15/` run (13
+  pages, 304 products, `mode="listing"`) and assert the sidecar fields this
+  engine actually writes.
+- **`.dockerignore`** listed `bbb_businesses.*`; it now lists this repo's
+  `kose_products.*`. The Dockerfile example wrote to `writing-instruments`.
+
 ## [0.1.1] — 2026-09-18
 
 A pass back over CLAUDE.md before calling the repo finished. Everything here

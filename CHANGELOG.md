@@ -47,6 +47,11 @@ as if they were this one.
 - **`.dockerignore`** listed `bbb_businesses.*`; it now lists this repo's
   `kose_products.*`. The Dockerfile example wrote to `writing-instruments`.
 
+- `SECURITY.md` said this project has no releases or version tags; it has
+  both. "Supported versions" now names the latest release and `main`.
+- `captcha_solver.py`'s docstring pointed at a "No DataDome solver" section
+  that does not exist in this repo (it came with the copied core). Removed.
+
 ## [0.1.1] — 2026-09-18
 
 A pass back over CLAUDE.md before calling the repo finished. Everything here

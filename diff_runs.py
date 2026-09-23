@@ -15,7 +15,7 @@ Compare two kose-scraper runs by `sku` and report what moved.
                product's own taxonomy
     source_changed
                the two rows were read a different way — a listing row and a
-               `--mode product` variant row populate different columns — so
+               `--mode product` row populate different columns — so
                the difference is about our two snapshots rather than about
                the product, and `--fail-on-change` ignores it (§8)
 
@@ -66,41 +66,39 @@ from output_writer import UNIQUE_BY_SKU_MODES
 # compared alongside `price_source` so a number that moved because it was
 # read from a different NODE is not reported as a price change (see below).
 #
-# `in_stock` earns its place because it genuinely varies here — measured over
-# 384 tiles, `available` on 377 and `soldout` on 7 — unlike the JSON-LD's own
-# availability, which was InStock on 192 of 192 and would have made a
-# constant column look like a monitored one.
+# `in_stock` earns its place because it genuinely varies here — 19 of 171
+# measured tiles say 現在購入頂けません or 予約受付終了 (README).
 #
-# The taxonomy fields are tracked because a product moving collection, or
-# gaining a special-edition flag, is a real editorial change worth seeing.
+# `tax_rate` is tracked because a product moving between Japan's 10% and 8%
+# rates changes what its tax-inclusive price means. The taxonomy fields are
+# tracked because a product moving category is a real editorial change
+# worth seeing.
 #
 # Deliberately NOT tracked: `position` and `page` (a property of the slice,
-# not of the product), `image_url` (the URL carries a content hash that
-# changes when the site re-encodes an unchanged photo), and `title`, which is
-# printed on every line anyway and whose whitespace the site is inconsistent
-# about.
+# not of the product), `image_url`, `badges` (the site's merchandising
+# flags, which describe a campaign rather than the product), and `title`, which is printed on every
+# line anyway.
 TRACKED_FIELDS = (
     # the point of the exercise
-    "price", "currency", "in_stock",
+    "price", "currency", "in_stock", "tax_rate",
     # what the product IS
-    "category", "collection", "sub_collection", "color", "size",
-    "special_edition", "brand",
-    # identity, in case a variant is re-parented
-    "base_sku", "variant_of",
+    "category", "subcategory", "brand",
+    # identity, in case a size or shade is re-parented
+    "variant_of",
 )
 
 # The subset that ONLY one kind of run populates.
 #
-# A `--mode product` variant row has no tile behind it, so it leaves the
-# tile-sourced columns null; a listing row has no `variant_of`. Diffing a
-# listing run against a product run would report each of these as a change on
-# every row, and none of it would be about the product. When the two rows
-# disagree on `mode`, these are reported as `source_changed` rather than as
-# changes — this family's rule (§8: a difference that comes with a
-# provenance difference says something about our own two snapshots, not about
-# the site).
+# A `--mode product` row has no tile behind it and a listing row has no
+# product page behind it: `subcategory` and `variant_of` are filled only from
+# a product page. Diffing a listing run against a product run would report
+# each of these as a change on every row, and none of it would be about the
+# product. When the two rows disagree on `mode`, these are reported as
+# `source_changed` rather than as changes — this family's rule (§8: a
+# difference that comes with a provenance difference says something about our
+# own two snapshots, not about the site).
 PROFILE_ONLY_FIELDS = (
-    "collection", "sub_collection", "special_edition", "variant_of",
+    "subcategory", "variant_of",
 )
 
 # Kept under a second name because that is what this repo's row model calls
@@ -152,7 +150,7 @@ def diff_products(old: List[dict], new: List[dict]) -> dict:
 
         # A row whose `mode` differs between runs is not comparable on the
         # mode-specific columns: a listing row fills the tile-sourced ones
-        # and leaves `variant_of` null, a `--mode product` variant row does
+        # and leaves `variant_of` null, a `--mode product` row does
         # the opposite. Every one of them would read as a change and none of
         # it would be about the product. Reporting it as a change would be a
         # false alarm about the site; the other columns still compare fine.
@@ -205,7 +203,7 @@ def _print_summary(result: dict) -> None:
                            for f, v in c["changes"].items())
         print(f"  ? {c['sku']}  {c['title']}  {deltas}  "
               f"[mode {src['old']!r} -> {src['new']!r}: a listing row and a "
-              f"variant row fill different columns, so this is not a change "
+              f"product row fill different columns, so this is not a change "
               f"in the product]")
     unmatchable = result["unmatchable_old"] + result["unmatchable_new"]
     if unmatchable:

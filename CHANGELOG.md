@@ -8,6 +8,22 @@ as a CLI toolkit can. A **patch** release means fixes; it does not promise
 that every flag and default is frozen. Where a patch changes behaviour an
 existing user would notice, the release notes lead with it.
 
+## [Unreleased]
+
+### Fixed
+
+- **Scraper API: `waitFor` is now sent as a JSON object.** Measured
+  2026-09-23 against `scraper.2captcha.com/tasks/sync`: the JSON-encoded
+  string this client sent (the form older docs described) is refused with
+  HTTP 422 "params.waitFor must be an object" -- and the task is still
+  billed ($0.0005) -- so every run with `--wait-text` or its sibling wait flags
+  failed with exit 5. The object form answers HTTP 200.
+- **Scraper API: the target page's status is read from `http_code`.** The
+  response's `status` field is the API's own verdict string (`"success"`),
+  not the target site's HTTP code, so a target 403/503 was never seen by
+  this client. `http_code` (an int) is read now, with `status` kept as a
+  fallback only when it is an int.
+
 ## [0.1.1] — 2026-09-18
 
 A pass back over CLAUDE.md before calling the repo finished. Everything here

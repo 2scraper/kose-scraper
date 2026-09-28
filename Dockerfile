@@ -5,7 +5,7 @@
 #   docker build -t kose-scraper .
 #   docker run --rm -v "$PWD/out:/out" kose-scraper \
 #     --url "https://maison.kose.co.jp/site/cosmedecorte/c/c15/" \
-#     --pages 3 --out /out/writing-instruments
+#     --pages 3 --out /out/kose_products
 #
 # Pass --proxy/--twocaptcha-key the same way as running locally, or mount a
 # .env at /app/.env — nothing here bakes in a credential.

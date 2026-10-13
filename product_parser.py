@@ -622,7 +622,34 @@ def _ld_in_stock(offer: dict) -> Optional[bool]:
 # `chrome-extension://` strip that §8 describes would be dead code in this
 # repo and is deliberately not carried.
 BOT_CHALLENGE_MARKERS = (
-    ("recaptcha", "google recaptcha"),
+    # NOT a bare `recaptcha`. That is what this set carried until
+    # 2026-10-13, and it FIRES ON A GOOD PAGE: fetched over
+    # `--cdp-endpoint`, 2Captcha's own auto-solve extension injects sixteen
+    # `chrome-extension://…/content/captcha/<vendor>/hunter.js` scripts into
+    # every page it loads, two of which contain the substring `recaptcha`.
+    # Counted on a 101 KB listing holding 24 real tiles:
+    #
+    #     recaptcha (bare)         2      <- the extension's own scripts
+    #     captcha (bare)          21
+    #     cf-turnstile             1
+    #     recaptcha/api.js         0      <- what the SITE would ship
+    #     recaptcha/api2/anchor    0
+    #     www.google.com/recaptcha 0
+    #
+    # Nothing broke, because `detect_page_state` checks for rendered tiles
+    # BEFORE it looks for a marker (§17's ordering) — but a page with no
+    # tiles, an exhausted tag facet say, would have been reported as a
+    # CHALLENGE over CDP: exit 3 for a correct answer.
+    #
+    # This repo's own claim that no marker fires on a good page was true of
+    # every capture it had and false of one it did not have, because all of
+    # them were fetched locally. That is CLAUDE.md §21's "the guard passed
+    # for the wrong reason: a fixture fetched the way a real run does not
+    # fetch", and §24 prescribes exactly the narrowing below.
+    ("recaptcha/api.js", "google recaptcha"),
+    ("recaptcha/api2/anchor", "google recaptcha"),
+    ("recaptcha/api2/bframe", "google recaptcha"),
+    ("www.google.com/recaptcha", "google recaptcha"),
     ("challenges.cloudflare.com", "cloudflare turnstile"),
     ("hcaptcha.com", "hcaptcha"),
     ("datadome", "datadome"),
@@ -837,6 +864,45 @@ def _badges(tile) -> Optional[str]:
     return ",".join(found) if found else None
 
 
+# The site TRUNCATES a long product name in the browser, and only there.
+#
+# Each tile carries `data-module="TruncateText" data-options='{"length": 36}'`
+# on its name node, and the site's own JavaScript rewrites that node after
+# load: 36 characters and an ellipsis. A plain HTTP fetch sees the full name
+# the server rendered; a browser sees the truncated one. So for months the
+# three browser engines returned a SHORTER title than the HTTP path for every
+# long name, and nothing could see it because there was no non-browser engine
+# to compare against — it took `http_scraper.py` existing for the two to
+# disagree on 10 of 72 rows of one live run.
+#
+# The thumbnail's `alt` is the same name and is immune to the rewrite.
+# Measured over 171 tiles in the captures: an `alt` is present on 171 of 171,
+# and after whitespace normalisation it differs from the server-rendered name
+# on **zero** of them — the 15 raw differences are all whitespace.
+#
+# The rule is therefore narrow rather than "always prefer alt": the `<p>` text
+# stays primary, and the `alt` is used only when the `<p>` has visibly been
+# truncated. That is unambiguous here because **0 of 171** server-rendered
+# names end in an ellipsis while every truncated one does.
+_TRUNCATION_MARKS = ("\u2026", "...", "\u2025")
+
+
+def _full_title(tile) -> Optional[str]:
+    """The product name, undoing the site's own in-browser truncation."""
+    node = tile.select_one("p.c-product__product-name")
+    text = _text(node)
+    if not text or not text.endswith(_TRUNCATION_MARKS):
+        return text
+    image = tile.select_one(".c-product__thumb__img img")
+    alt = (image.get("alt") or "").strip() if image else ""
+    alt = re.sub(r"\s+", " ", alt)
+    # Only when it is genuinely more than the truncated text, so a site that
+    # one day ships an empty or shorter alt cannot make a title worse.
+    if alt and len(alt) > len(text) - 1:
+        return alt
+    return text
+
+
 def parse_products(html: str, base_url: str = "", *, page: int = 1,
                    mode: str = "listing") -> List[Product]:
     """Rows from a listing page, in the order the page publishes them.
@@ -872,7 +938,7 @@ def parse_products(html: str, base_url: str = "", *, page: int = 1,
             scraped_at=scraped_at,
             url=_absolute(href, base_url),
             sku=sku,
-            title=_text(tile.select_one("p.c-product__product-name")),
+            title=_full_title(tile),
             brand=_text(tile.select_one("p.c-product__brand")),
             price=parse_price(price_text),
             currency=CURRENCY if parse_price(price_text) is not None else None,

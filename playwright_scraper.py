@@ -715,6 +715,45 @@ def _parse_for_mode(html: str, url: str, args, page_num: int = 1):
     return listing.rows, listing
 
 
+class _SolveBudget:
+    """Every paid solve on one page goes through here. One counter, checked
+    BEFORE each purchase rather than beside one of them.
+
+    This exists because the budget was enforced at ONE of the two call sites.
+    `handle_captcha_if_present` runs twice per attempt — once before the page
+    is classified, so a challenge is cleared before anything is judged, and
+    once after, for the state that says the page really is gated — and only
+    the second call was counted. The uncounted one repeats on every
+    block-retry, so the constant read like a limit and was advisory.
+
+    Nothing about that is visible on a site where a challenge is rare, which
+    is exactly this one: no challenge of any vendor has ever been observed on
+    maison.kose.co.jp, so this has never cost anything here. It is carried
+    because the day it does cost something is the day nobody is watching —
+    CLAUDE.md §17's "a policy constant nothing reads", with a bill attached,
+    and §23 measured one page buying three solves on a sibling.
+
+    The budget deliberately does NOT reset on rotation: a fresh exit is a
+    reason to re-fetch, not a fresh allowance to spend.
+    """
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        self.spent = 0
+
+    def spend(self, solve) -> bool:
+        """Run `solve()` if the budget allows, and count it. False if not."""
+        if self.spent >= self.limit:
+            logger.info("Not attempting another solve on this page: %d of %d "
+                        "already bought. A challenge that survives a solved "
+                        "token is not one this run can pass, and a second "
+                        "solve is a second charge for the same answer.",
+                        self.spent, self.limit)
+            return False
+        self.spent += 1
+        return bool(solve())
+
+
 def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome:
     """Fetch and parse one page. Retries, rotations and debug dumps live here.
 
@@ -752,7 +791,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # Counted across the whole block-retry loop, not per attempt: a page that
     # keeps coming back as a challenge would otherwise buy one solve per
     # rotation, which is how a run quietly turns into a bill.
-    solves_bought = 0
+    budget = _SolveBudget(page_flow.SOLVES_PER_PAGE)
     html, state, load_failed = None, "ok", False
     # The HTTP status the navigation returned, threaded all the way to the
     # classifier. Discarding it is a real defect and not a tidiness one: this
@@ -765,6 +804,9 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     http_status = None
 
     for block_attempt in range(block_retries + 1):
+        # Logged before the load loop, which is fine now that --retries
+        # cannot be 0: with 0 this line announced a fetch the loop then never
+        # made, so the log itself corroborated the wrong conclusion.
         logger.info("Fetching page %d/%d: %s", page_num, args.pages, url)
         # Retry a navigation timeout rather than ending the run on it. One
         # network flap on page 12 of 50 should not break the loop.
@@ -808,7 +850,10 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         if load_failed:
             break
 
-        if handle_captcha_if_present(session.page, args):
+        # Routed through the budget like every other purchase. This
+        # call used to be unguarded, which is how one page could buy
+        # a solve per block-retry against a limit of one.
+        if budget.spend(lambda: handle_captcha_if_present(session.page, args)):
             # A solve navigated the page. Give the destination a moment
             # before judging what came back.
             session.page.wait_for_timeout(1000)
@@ -852,10 +897,8 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         # nothing. That distinction is the whole reason page_flow separates
         # the two states, and it is bounded by SOLVES_PER_PAGE so a rotation
         # loop cannot become a bill.
-        if (page_flow.should_solve(state)
-                and solves_bought < page_flow.SOLVES_PER_PAGE):
-            solves_bought += 1
-            if handle_captcha_if_present(session.page, args):
+        if page_flow.should_solve(state):
+            if budget.spend(lambda: handle_captcha_if_present(session.page, args)):
                 session.page.wait_for_timeout(1000)
                 html = _snapshot(session.page, url) or html
                 state = _classify(session.page, html, http_status)
@@ -1198,6 +1241,7 @@ def _fetch_pages_concurrently(args, pool, specs, concurrency: int):
 
 
 def scrape(args) -> int:
+    _started = time.monotonic()
     # One entry per page attempted, merged after the loop rather than folded
     # into shared state during it — see PageOutcome for why that ordering
     # matters more than it looks.
@@ -1490,6 +1534,20 @@ def scrape(args) -> int:
         # pages x page_size would OVERSTATE a short last page: 13 x 24 = 312
         # against the 304 that exist.
 
+    # Which engine ran, what version of its driver, and how long it took.
+    # A sidecar that says only "complete" cannot answer "why is this run
+    # slower than yesterday's" or "did the pyppeteer upgrade change
+    # anything", and all three are one line each. Raised by a third-party
+    # audit on 2026-10-13 and agreed with.
+    try:
+        from importlib.metadata import version as _pkg_version
+        _v = _pkg_version("playwright")
+    except Exception:  # noqa: BLE001 — a version is never worth a crash
+        _v = None
+    _run_facts = {"engine": "playwright", "engine_version": _v,
+                  "duration_seconds": round(time.monotonic() - _started, 1)}
+    extra = {**(extra or {}), **_run_facts}
+
     return finish_run(all_rows, args.out, args.format, args.allow_empty,
                       blocked=blocked, stop_reason=stop_reason,
                       pages_requested=args.pages, pages_completed=len(ok_pages),
@@ -1555,12 +1613,8 @@ def parse_args():
                         "own browser and holds its own proxy exit, so N>1 "
                         "without --proxy-file just sends N times the traffic "
                         "from one address. Ignored with --cdp-endpoint.")
-    p.add_argument("--retries", type=int, default=3,
-                   help="Attempts per page load before giving up (default 3). "
-                        "The pause between attempts doubles each time. A page "
-                        "that comes back EMPTY is not retried — see "
-                        "page_flow.STATE_POLICY — because a category with no "
-                        "products on it is a correct answer, not a fault.")
+    p.add_argument("--retries", type=page_flow.attempts, default=3,
+                   help=page_flow.RETRIES_HELP)
     p.add_argument("--retry-delay", type=float, default=2.0,
                    help="Seconds before the first page-load retry, doubling "
                         "thereafter (default 2.0)")
@@ -1649,6 +1703,15 @@ def parse_args():
     p.add_argument("--headless", action="store_true", default=True)
     p.add_argument("--headful", dest="headless", action="store_false")
     args = p.parse_args()
+    # What the USER typed, before the environment fills anything in.
+    #
+    # `env_config.apply` only fills UNSET values, so after it runs there is
+    # no way to tell a --url from the command line apart from a KOSE_URL in
+    # .env. The conflict check below used `args.url` and therefore refused
+    # --tags and --category outright for anyone who had set that variable —
+    # which `.env.example` ships and the README recommends, so the two flags
+    # were unusable in exactly the setup this repo tells people to create.
+    typed_url = args.url
     # Fill --twocaptcha-key / --cdp-endpoint / --proxy / --url from the
     # environment or .env when the flag was not given. An explicit flag wins.
     env_config.apply(args)
@@ -1657,18 +1720,18 @@ def parse_args():
     # and only one of them may win. Refused rather than merged: a --tags that
     # disagreed with a URL already naming a facet would silently read a
     # different set of products than the address names.
-    if args.url and args.tags:
+    if typed_url and args.tags:
         p.error("--url already names what to fetch; --tags would have to "
                 "agree with it. Pass either a URL or --tags, not both.")
 
-    if not args.url and args.tags:
+    if not typed_url and args.tags:
         if args.mode == "product":
             p.error("--mode product needs a --url: a product is one page at "
                     "one address, and --tags describes a facet.")
         args.url = ("https://maison.kose.co.jp/site/itemtags/list.aspx?tags="
                     + quote(args.tags, safe=","))
         logger.info("Built the tag listing URL from --tags: %s", args.url)
-    elif not args.url and args.category:
+    elif not typed_url and args.category:
         # `--category` is doing double duty — an id to build a URL from when
         # there is no --url, and a label to tag rows with when there is.
         # It takes the `cNN` id rather than a brand name because the id is
@@ -1716,7 +1779,13 @@ def parse_args():
     return args
 
 
-if __name__ == "__main__":
+def _cli():
+    """Console entry point, so `pip install .` gives a command.
+
+    The module stays runnable as a script — `python playwright_scraper.py …` is
+    what every example in the README and the workflows uses — and
+    this is the same code path rather than a second one.
+    """
     args = parse_args()
     if args.fingerprint and not args.twocaptcha_key:
         logger.error("--fingerprint needs --twocaptcha-key (the Fingerprint API "
@@ -1747,3 +1816,7 @@ if __name__ == "__main__":
             logger.error("%s", text)
             sys.exit(EXIT_API_ERROR)
         raise
+
+
+if __name__ == "__main__":
+    _cli()

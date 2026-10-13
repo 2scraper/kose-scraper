@@ -47,6 +47,7 @@ from typing import Optional
 
 import requests
 
+import page_flow
 from product_parser import (BOT_CHALLENGE_MARKERS, detect_bot_challenge,
                             detect_page_state, parse_product_detail,
                             parse_products)
@@ -349,10 +350,12 @@ def parse_args():
     p.add_argument("--allow-empty", action="store_true",
                    help="Write output files even when 0 products were parsed. Off by "
                         "default so a failed fetch can't overwrite a good result.")
-    p.add_argument("--retries", type=int, default=1,
-                   help="Extra attempts if a bot-challenge page comes back. One retry is "
-                        "usually worth it. Each attempt is a separate billable task, so "
-                        "this defaults to 1.")
+    p.add_argument("--retries", type=page_flow.extra_attempts, default=1,
+                   help="EXTRA attempts if a bot-challenge page comes back — "
+                        "note this counts retries, while the browser engines' "
+                        "flag of the same name counts ATTEMPTS. 0 is "
+                        "meaningful here and means one attempt. Each attempt "
+                        "is a separate billable task, so this defaults to 1.")
     p.add_argument("--retry-delay", type=int, default=10,
                    help="Seconds between retries (default 10)")
     p.add_argument("--dump-html", default=None,

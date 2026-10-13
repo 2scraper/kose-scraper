@@ -8,9 +8,133 @@ as a CLI toolkit can. A **patch** release means fixes; it does not promise
 that every flag and default is frozen. Where a patch changes behaviour an
 existing user would notice, the release notes lead with it.
 
-## [Unreleased]
+## [0.2.0] — 2026-10-13
+
+Worked through a third-party audit. Its headline conclusion was wrong and
+three of its recommendations were right; the pass that followed found four
+more defects it had not reached, two of which were in this repo's own
+guards.
+
+> **`--retries 0` is a usage error now.** It used to attempt no request at
+> all and then judge the blank page — a script passing it received exit 4
+> and no data, and will now receive exit 2 with the reason. If you have one,
+> it has been getting nothing.
+
+### Added
+
+- **`http_scraper.py` — a fourth engine, over `requests`, and the
+  recommended path on this site.** Same parser, same rows, same sidecar,
+  same exit codes. Measured 2026-10-13 on the same three pages: **4.8–6.0 s
+  against Playwright's 9.2–10.6 s**, identical rows, and the whole install
+  is `pip install -r requirements.txt`.
+
+  This was the audit's main recommendation and it is right for the reason it
+  gave: the site server-renders its grid and gates nothing — a project UA, a
+  `requests` UA, a Chrome UA and **no User-Agent header at all** are served
+  byte-identical pages. The flags it cannot honour (`--cdp-endpoint`,
+  `--solve-captcha`, `--fingerprint`) are refused as usage errors rather
+  than accepted and ignored.
+
+- **`<out>.last_attempt.json`** — a machine-readable record of the most
+  recent attempt, successful or not, under its own name so it can sit beside
+  a sidecar that still describes good data. The audit was right that a
+  failed run left a caller nothing but an exit code.
+
+- **`[project.scripts]`** — `kose-scrape`, `kose-scrape-browser` and
+  `kose-diff`, so `pip install .` gives commands rather than paths. The
+  default command is the browserless one.
+
+- **The sidecar records which engine ran**, its driver version and the
+  run's duration.
+
+- **A canary job that runs the HTTP and browser engines over the same three
+  pages and fails if any field differs.** That check is what found the
+  truncation bug below, so it earns its place rather than decorating one.
 
 ### Fixed
+
+- **An HTTP 404 the engines could not see, and `--retries 0` judging a page
+  it never fetched.** The load loop is `range(1, retries + 1)`; zero ran it
+  never, so `goto` was not called and the engine classified `about:blank` —
+  39 bytes — as the site's answer. The audit ran exactly that, got exit 4,
+  and concluded the browser path was broken and should be replaced. The same
+  command with `--retries 1`, same address and same minute, returned 199,558
+  bytes and 24 products.
+
+- **Selenium and pyppeteer CRASHED on a blocked page with no `--proxy`.**
+  `mask(pool.current)` on a `None` pool: `AttributeError`, exit 1, for a
+  page that was merely blocked — which destroys the blocked/empty/partial
+  distinction the whole exit-code contract rests on. Playwright had the
+  guard all along, so this was "all three engines must agree" broken in the
+  two quiet ones. Reproduced by forcing the state; exit 3 after.
+
+- **The browser engines returned TRUNCATED product titles.** The site
+  carries `data-module="TruncateText" data-options='{"length": 36}'` on each
+  tile and its own JavaScript rewrites the name after load. A plain HTTP
+  fetch sees the full name; a browser sees 36 characters and an ellipsis. On
+  one live 3-page run the two engines differed on **10 of 72 rows**, every
+  one a title — and nothing could see it until a browserless engine existed
+  to disagree. The full name is recovered from the thumbnail's `alt`, which
+  the rewrite does not touch.
+
+- **A bare `recaptcha` marker fired on a good page fetched over
+  `--cdp-endpoint`.** 2Captcha's auto-solve extension injects sixteen hunter
+  scripts into every page it loads, two of them containing that substring. A
+  listing with no tiles — an exhausted tag facet — would have been reported
+  as a challenge: exit 3 for a correct answer. Narrowed to the loader paths
+  the extension injects nothing matching, and a CDP-fetched page is now one
+  of the suite's fixtures. The README's "zero captcha markers" claim was
+  true of every capture this repo had and every one of them was fetched
+  locally; it now says so.
+
+- **Every paid solve goes through one budget.** `handle_captcha_if_present`
+  runs twice per attempt and only the second call was counted, so the
+  uncounted one repeated on every block-retry. Measured with the solver
+  stubbed: **3 invocations against a limit of 1**, now 1. It has never cost
+  anything here — no challenge has ever been observed on this site — which
+  is exactly why it would have gone unnoticed.
+
+- **Output is written atomically**, to a temporary file beside the target
+  and then renamed, with the umask honoured and an existing file's mode
+  kept. `open(path, "w")` truncates before a byte is written, so a crash
+  halfway through left a shorter file where a complete one was — breaking
+  the same promise `save()` keeps by refusing to overwrite good output with
+  an empty result. The sidecar is the one that matters most.
+
+- **CSV cells beginning `=`, `+`, `-`, `@` or whitespace are neutralised**,
+  with the count in the sidecar. It does not fire on this site — 0 of 2,662
+  measured string cells — and is worth shipping anyway.
+
+- **`diff_runs.py` had never been in the list CI runs `--help` on.** Found
+  by a check written for the new engine, which is the usual way a
+  hand-written list turns out to be short.
+
+### Not changed, and why
+
+Two of the audit's recommendations were declined on the merits, and the
+reasons are here so the next reader does not have to re-derive them:
+
+- **"Drop pyppeteer and/or Selenium."** The three browser engines are this
+  project family's contract: they exist so that a defect in one is visible
+  as a disagreement rather than as a silent difference, and that is not
+  theoretical — the browser/HTTP disagreement above is exactly what caught
+  the truncation bug, and this release fixes a crash that lived in the two
+  quiet engines precisely because nobody ran them. The maintenance cost the
+  audit names is real; the answer to it is one shared fetch loop, not fewer
+  engines, and that refactor is a decision for the family rather than for
+  this repo alone.
+
+- **"Make the HTTP loader the default path of the existing CLI."** It is a
+  separate CLI instead. `playwright_scraper.py` quietly not using Playwright
+  would be a worse lie than the one the audit was objecting to, and the two
+  engines have genuinely different capabilities — only one can take
+  `--cdp-endpoint` or solve a challenge. The README recommends the HTTP one
+  and the canary runs both.
+
+### Also in this release — work that had been unreleased
+
+Family-wide fixes and a donor-leftovers pass that landed after
+v0.1.1 and had not been tagged.
 
 - **Scraper API: `waitFor` is now sent as a JSON object.** Measured
   2026-09-23 against `scraper.2captcha.com/tasks/sync`: the JSON-encoded
@@ -201,5 +325,6 @@ store.
   with no tiles on it, so there is no keyword-search mode. The tag facets are
   the route that crosses brands.
 
+[0.2.0]: https://github.com/2scraper/kose-scraper/releases/tag/v0.2.0
 [0.1.1]: https://github.com/2scraper/kose-scraper/releases/tag/v0.1.1
 [0.1.0]: https://github.com/2scraper/kose-scraper/releases/tag/v0.1.0

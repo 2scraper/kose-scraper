@@ -552,6 +552,45 @@ def page_url_start(url: str) -> int:
     return page_number_from_url(url) or 1
 
 
+class _SolveBudget:
+    """Every paid solve on one page goes through here. One counter, checked
+    BEFORE each purchase rather than beside one of them.
+
+    This exists because the budget was enforced at ONE of the two call sites.
+    `handle_captcha_if_present` runs twice per attempt — once before the page
+    is classified, so a challenge is cleared before anything is judged, and
+    once after, for the state that says the page really is gated — and only
+    the second call was counted. The uncounted one repeats on every
+    block-retry, so the constant read like a limit and was advisory.
+
+    Nothing about that is visible on a site where a challenge is rare, which
+    is exactly this one: no challenge of any vendor has ever been observed on
+    maison.kose.co.jp, so this has never cost anything here. It is carried
+    because the day it does cost something is the day nobody is watching —
+    CLAUDE.md §17's "a policy constant nothing reads", with a bill attached,
+    and §23 measured one page buying three solves on a sibling.
+
+    The budget deliberately does NOT reset on rotation: a fresh exit is a
+    reason to re-fetch, not a fresh allowance to spend.
+    """
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        self.spent = 0
+
+    def spend(self, solve) -> bool:
+        """Run `solve()` if the budget allows, and count it. False if not."""
+        if self.spent >= self.limit:
+            logger.info("Not attempting another solve on this page: %d of %d "
+                        "already bought. A challenge that survives a solved "
+                        "token is not one this run can pass, and a second "
+                        "solve is a second charge for the same answer.",
+                        self.spent, self.limit)
+            return False
+        self.spent += 1
+        return bool(solve())
+
+
 def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome:
     """Fetch and parse one page. Mirrors playwright_scraper._fetch_one_page.
 
@@ -578,7 +617,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # Counted across the whole block-retry loop, not per attempt: a page that
     # keeps coming back as a challenge would otherwise buy one solve per
     # rotation, which is how a run quietly turns into a bill.
-    solves_bought = 0
+    budget = _SolveBudget(page_flow.SOLVES_PER_PAGE)
     # No `http_status` here, and its ABSENCE is the finding rather than an
     # oversight: `driver.get()` returns None and WebDriver exposes no HTTP
     # status at all, so this engine cannot thread one however carefully its
@@ -590,6 +629,9 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # than two of them being better informed than the third.
 
     for block_attempt in range(block_retries + 1):
+        # Logged before the load loop, which is fine now that --retries
+        # cannot be 0: with 0 this line announced a fetch the loop then never
+        # made, so the log itself corroborated the wrong conclusion.
         logger.info("Fetching page %d/%d: %s", page_num, args.pages, url)
         load_failed, exit_failed = False, None
         for attempt in range(1, args.retries + 1):
@@ -623,7 +665,10 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             break
 
 
-        if handle_captcha_if_present(session, args):
+        # Routed through the budget like every other purchase. This
+        # call used to be unguarded, which is how one page could buy
+        # a solve per block-retry against a limit of one.
+        if budget.spend(lambda: handle_captcha_if_present(session, args)):
             time.sleep(1)
 
         html = _snapshot(session, url) or ""
@@ -656,10 +701,8 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         # "blocked": the hard "You have been blocked" page carries no widget
         # and no sitekey, so a solve there would be a charge for nothing.
         # Bounded by SOLVES_PER_PAGE. Mirrors playwright_scraper.
-        if (page_flow.should_solve(state)
-                and solves_bought < page_flow.SOLVES_PER_PAGE):
-            solves_bought += 1
-            if handle_captcha_if_present(session, args):
+        if page_flow.should_solve(state):
+            if budget.spend(lambda: handle_captcha_if_present(session, args)):
                 time.sleep(1)
                 html = d["content"]() or html
                 state = page_flow.classify(html, url=d["current_url"]())
@@ -682,12 +725,29 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         # so a different exit is the only thing that plausibly changes the
         # outcome.
         if block_attempt < block_retries:
-            logger.warning("Page %d came back as %s from %s — retrying from "
-                           "another exit (%d/%d).", page_num, state,
-                           mask(pool.current), block_attempt + 1, block_retries)
-            pool.advance(f"{state} on page {page_num}")
-            session.relaunch()
-            d = _driver(session)
+            if has_pool:
+                logger.warning("Page %d came back as %s from %s — retrying "
+                               "from another exit (%d/%d).", page_num, state,
+                               mask(pool.current), block_attempt + 1,
+                               block_retries)
+                pool.advance(f"{state} on page {page_num}")
+                session.relaunch()
+            else:
+                # No pool, so nowhere else to go. The primary engine has had
+                # this branch since the repo was written and its twins did
+                # not: `mask(pool.current)` on a None pool raised
+                # AttributeError and the run exited 1 — a CRASH reported for
+                # a page that was merely blocked, which destroys the
+                # blocked/empty/partial distinction §8 calls an invariant.
+                # Reproduced by forcing the blocked state with no --proxy.
+                pause = args.retry_delay * (block_attempt + 1)
+                logger.warning("Page %d came back as %s and there is no proxy "
+                               "pool to rotate through — re-fetching through "
+                               "the same access path in %.1fs (%d/%d).",
+                               page_num, state, pause, block_attempt + 1,
+                               block_retries)
+                time.sleep(pause)
+                d = _driver(session)
 
     if load_failed:
         logger.error("Gave up loading %s after %d attempt(s).", url, args.retries)
@@ -864,6 +924,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
 
 
 def scrape(args) -> int:
+    _started = time.monotonic()
     outcomes: List[PageOutcome] = []
     seen_keys = set()
     blocked = False
@@ -1031,6 +1092,20 @@ def scrape(args) -> int:
         # `pages_available` already says everything they would, and
         # pages x page_size would OVERSTATE a short last page.
 
+    # Which engine ran, what version of its driver, and how long it took.
+    # A sidecar that says only "complete" cannot answer "why is this run
+    # slower than yesterday's" or "did the pyppeteer upgrade change
+    # anything", and all three are one line each. Raised by a third-party
+    # audit on 2026-10-13 and agreed with.
+    try:
+        from importlib.metadata import version as _pkg_version
+        _v = _pkg_version("selenium")
+    except Exception:  # noqa: BLE001 — a version is never worth a crash
+        _v = None
+    _run_facts = {"engine": "selenium", "engine_version": _v,
+                  "duration_seconds": round(time.monotonic() - _started, 1)}
+    extra = {**(extra or {}), **_run_facts}
+
     return finish_run(all_rows, args.out, args.format, args.allow_empty,
                       blocked=blocked, stop_reason=stop_reason,
                       pages_requested=args.pages, pages_completed=len(ok_pages),
@@ -1096,12 +1171,8 @@ def parse_args():
                         "own browser and holds its own proxy exit, so N>1 "
                         "without --proxy-file just sends N times the traffic "
                         "from one address. Ignored with --cdp-endpoint.")
-    p.add_argument("--retries", type=int, default=3,
-                   help="Attempts per page load before giving up (default 3). "
-                        "The pause between attempts doubles each time. A page "
-                        "that comes back EMPTY is not retried — see "
-                        "page_flow.STATE_POLICY — because a category with no "
-                        "products on it is a correct answer, not a fault.")
+    p.add_argument("--retries", type=page_flow.attempts, default=3,
+                   help=page_flow.RETRIES_HELP)
     p.add_argument("--retry-delay", type=float, default=2.0,
                    help="Seconds before the first page-load retry, doubling "
                         "thereafter (default 2.0)")
@@ -1190,6 +1261,15 @@ def parse_args():
     p.add_argument("--headless", action="store_true", default=True)
     p.add_argument("--headful", dest="headless", action="store_false")
     args = p.parse_args()
+    # What the USER typed, before the environment fills anything in.
+    #
+    # `env_config.apply` only fills UNSET values, so after it runs there is
+    # no way to tell a --url from the command line apart from a KOSE_URL in
+    # .env. The conflict check below used `args.url` and therefore refused
+    # --tags and --category outright for anyone who had set that variable —
+    # which `.env.example` ships and the README recommends, so the two flags
+    # were unusable in exactly the setup this repo tells people to create.
+    typed_url = args.url
     # Fill --twocaptcha-key / --cdp-endpoint / --proxy / --url from the
     # environment or .env when the flag was not given. An explicit flag wins.
     env_config.apply(args)
@@ -1198,18 +1278,18 @@ def parse_args():
     # and only one of them may win. Refused rather than merged: a --tags that
     # disagreed with a URL already naming a facet would silently read a
     # different set of products than the address names.
-    if args.url and args.tags:
+    if typed_url and args.tags:
         p.error("--url already names what to fetch; --tags would have to "
                 "agree with it. Pass either a URL or --tags, not both.")
 
-    if not args.url and args.tags:
+    if not typed_url and args.tags:
         if args.mode == "product":
             p.error("--mode product needs a --url: a product is one page at "
                     "one address, and --tags describes a facet.")
         args.url = ("https://maison.kose.co.jp/site/itemtags/list.aspx?tags="
                     + quote(args.tags, safe=","))
         logger.info("Built the tag listing URL from --tags: %s", args.url)
-    elif not args.url and args.category:
+    elif not typed_url and args.category:
         # `--category` is doing double duty — an id to build a URL from when
         # there is no --url, and a label to tag rows with when there is.
         # It takes the `cNN` id rather than a brand name because the id is

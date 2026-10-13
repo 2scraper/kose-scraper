@@ -60,6 +60,7 @@ the browser to evaluate: a site whose CSP omits `unsafe-eval` kills
 the header, checked — so this costs nothing here and keeps the habit.
 """
 
+import argparse
 import re
 import time
 from typing import Callable, Optional
@@ -142,6 +143,66 @@ def wait_for_count(count: Callable[[str], int], selector: str, minimum: int,
         if time.monotonic() >= deadline:
             return seen
         sleep_ms(READY_POLL_MS)
+
+
+
+# ---------------------------------------------------------------------------
+# Flag validation
+# ---------------------------------------------------------------------------
+
+RETRIES_HELP = ("Attempts per page load before giving up (default 3, "
+                "minimum 1). The pause between attempts doubles each time. A "
+                "page that comes back EMPTY is not retried: an empty listing "
+                "is a correct answer, not a fault. NOTE this counts ATTEMPTS "
+                "here and RETRIES in scraper_api_client.py, where each one is "
+                "separately billable — each file's own help says which.")
+
+
+def attempts(value: str) -> int:
+    """argparse type for --retries on an ENGINE: attempts, so at least 1.
+
+    The load loop is `range(1, retries + 1)`. Zero ran it NEVER, so `goto`
+    was not called and the engine judged `about:blank` — a 39-byte empty DOM
+    reported as a result for a site that was never asked.
+
+    That is not a hypothetical. A third-party audit of this repo on
+    2026-10-13 ran exactly `--retries 0`, got the 39-byte document and exit
+    4, and concluded in writing that the browser path was broken and that
+    the HTTP path should replace it. The same command with `--retries 1`,
+    same address and same minute, returned 199,558 bytes and 24 products.
+    So this flag did not merely waste a run: it produced a confident, wrong
+    verdict about the whole project. CLAUDE.md §28 records the identical
+    sequence on a sibling repo, which is why this is a usage error now
+    rather than a documented quirk.
+    """
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not an integer")
+    if n < 1:
+        raise argparse.ArgumentTypeError(
+            "must be at least 1: it counts attempts per page load, and 0 "
+            "would attempt none and then judge a page that was never "
+            "fetched")
+    return n
+
+
+def extra_attempts(value: str) -> int:
+    """argparse type for --retries on the BILLABLE Scraper API path.
+
+    Zero is meaningful and safe there — it means one attempt, because that
+    client computes `max(1, retries + 1)` — so this accepts 0 and refuses
+    only a negative, which would otherwise be silently clamped and read as
+    "the flag did nothing".
+    """
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not an integer")
+    if n < 0:
+        raise argparse.ArgumentTypeError(
+            "cannot be negative: 0 means one attempt and no retry")
+    return n
 
 
 def classify(html: Optional[str], status: Optional[int] = None,

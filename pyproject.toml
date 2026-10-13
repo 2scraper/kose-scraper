@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kose-scraper"
-version = "0.1.1"
+version = "0.2.0"
 description = "Maison KOSÉ (maison.kose.co.jp) scraper: category and tag listings, product pages, prices, brands and stock."
 readme = "README.md"
 license = "MIT"
@@ -19,6 +19,15 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     "requests>=2.31.0",
 ]
+
+# Entry points, so `pip install .` gives a COMMAND rather than a path into a
+# checkout. `kose-scrape` is the HTTP engine on purpose: it is the one that
+# needs no browser, so the installed default is the one that works straight
+# after `pip install .` with nothing else fetched.
+[project.scripts]
+kose-scrape = "http_scraper:_cli"
+kose-scrape-browser = "playwright_scraper:_cli"
+kose-diff = "diff_runs:_cli"
 
 [project.urls]
 Homepage = "https://github.com/2scraper/kose-scraper"
@@ -46,6 +55,7 @@ py-modules = [
     "diff_runs",
     "env_config",
     "fingerprint_client",
+    "http_scraper",
     "output_writer",
     "page_flow",
     "playwright_scraper",

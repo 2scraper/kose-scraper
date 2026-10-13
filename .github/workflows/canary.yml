@@ -198,6 +198,113 @@ jobs:
             *_debug.html
           if-no-files-found: ignore
 
+  http_vs_browser:
+    name: HTTP engine, and the two must agree
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-playwright.txt
+          playwright install --with-deps chromium
+
+      - name: Run both engines over the same three pages
+        id: run
+        run: |
+          set +e
+          python http_scraper.py --url "$CANARY_URL" --pages 3 \
+            --format json --out canary_http
+          echo "http_exit=$?" >> "$GITHUB_OUTPUT"
+          python playwright_scraper.py --url "$CANARY_URL" --pages 3 \
+            --format json --out canary_browser
+          echo "browser_exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: They must return the same rows
+        env:
+          HTTP_EXIT: ${{ steps.run.outputs.http_exit }}
+          BROWSER_EXIT: ${{ steps.run.outputs.browser_exit }}
+        run: |
+          python - <<'PY'
+          import json, os, sys
+
+          failures = []
+          def want(label, ok, detail=""):
+              if not ok:
+                  failures.append(f"{label}: {detail}")
+
+          http_exit = int(os.environ["HTTP_EXIT"])
+          browser_exit = int(os.environ["BROWSER_EXIT"])
+          want("the HTTP engine exits 0", http_exit == 0, str(http_exit))
+          want("the browser engine exits 0", browser_exit == 0,
+               str(browser_exit))
+          if failures:
+              for f in failures:
+                  print(f"::error::{f}")
+              # A browserless path that stops working is the README's
+              # central claim failing, and it is the more important of the
+              # two: it says the site started gating what it used to serve.
+              sys.exit(1)
+
+          a = {r["sku"]: r for r in json.load(open("canary_http.json"))}
+          b = {r["sku"]: r for r in json.load(open("canary_browser.json"))}
+          want("both engines returned rows", a and b,
+               f"{len(a)} / {len(b)}")
+          want("the same products", set(a) == set(b),
+               f"{len(set(a) ^ set(b))} sku(s) in one and not the other")
+
+          # Field by field, ignoring the per-row timestamp, which is the
+          # only column that legitimately differs between two runs.
+          differing = []
+          for sku in set(a) & set(b):
+              for field in a[sku]:
+                  if field in ("scraped_at", "mode"):
+                      continue
+                  if a[sku][field] != b[sku][field]:
+                      differing.append((sku, field))
+          # This is the check that found the site's own in-browser title
+          # truncation: for months the browser engines returned a SHORTER
+          # title than the server renders, on 10 of 72 rows, and nothing
+          # could see it because there was no browserless engine to
+          # disagree with.
+          want("no field differs between the two engines", not differing,
+               str(differing[:6]))
+
+          meta_a = json.load(open("canary_http.meta.json"))
+          meta_b = json.load(open("canary_browser.meta.json"))
+          want("both runs are complete",
+               meta_a["status"] == meta_b["status"] == "complete",
+               f'{meta_a["status"]} / {meta_b["status"]}')
+          want("each sidecar names its engine",
+               meta_a.get("engine") == "http"
+               and meta_b.get("engine") == "playwright",
+               f'{meta_a.get("engine")} / {meta_b.get("engine")}')
+
+          if failures:
+              for f in failures:
+                  print(f"::error::{f}")
+              sys.exit(1)
+          print(f"::notice::{len(a)} rows from each engine, identical, in "
+                f"{meta_a.get('duration_seconds')}s (http) against "
+                f"{meta_b.get('duration_seconds')}s (browser).")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: canary-http-vs-browser
+          path: |
+            canary_http.json
+            canary_http.meta.json
+            canary_browser.json
+            canary_browser.meta.json
+          if-no-files-found: ignore
+
   product:
     name: product page (no credentials needed)
     runs-on: ubuntu-latest

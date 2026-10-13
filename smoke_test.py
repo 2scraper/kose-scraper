@@ -78,10 +78,12 @@ import ast
 import csv
 import inspect
 import io
+import glob
 import json
 import os
 import re
 import subprocess
+import stat
 import sys
 import tempfile
 from dataclasses import asdict, fields
@@ -603,6 +605,120 @@ body {
 </body>
 </html>
 """
+
+CDP_PAGE_HTML = """<!doctype html><html lang="ja"><head>
+<meta charset="UTF-8">
+<title>コスメデコルテ｜ Maison KOSÉ(メゾンコーセー)</title>
+<link rel="canonical" href="https://maison.kose.co.jp/site/cosmedecorte/c/c15/">
+<script src="/js/sys/common.js"></script>
+<script src="/js/sys/search_suggest.js"></script>
+<script src="/js/sys/sys.js"></script>
+<!-- injected by 2Captcha's Scraping Browser auto-solve extension, verbatim -->
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/captchafox/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/mt_captcha/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/turnstile/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/turnstile/hunter.js" data-ts-input="cf-turnstile-response"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/amazon_waf/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/yandex/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/lemin/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/arkoselabs/hunter.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/arkoselabs/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/recaptcha/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/recaptcha/hunter.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/keycaptcha/hunter.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/geetest_v4/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/captcha/geetest/interceptor.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/communication_helpers.js"></script>
+<script src="chrome-extension://kjmkgkdkpedkejedfhmfcenooemhbpbo/content/core_helpers.js"></script>
+</head><body>
+<captcha-widgets></captcha-widgets>
+<ul class="c-product-content__list js-goods-list-wrapper">
+<li class="c-product__item is-item-number-1">
+  <p class="c-product__icon__wrap" style="min-height: 20px;">
+    <span class="c-product__icon c-product__icon-limited"><img src="/freepage/maison-kose/common/img/badge/comingsoon.png" alt="COMING SOON"></span>
+    <span class="c-product__icon c-product__icon-limited"><img src="/img/icon/limited.png" alt="限定品"></span>
+    
+    <span class="c-product__launch-date">11月1日発売</span>
+  </p>
+  <div class="c-product__thumb is-soon">
+    <a href="/site/cosmedecorte/g/gCDS0465/" class="c-product__thumb__img">
+      <img src="/img/goods/S/CDS0465_sub.png" alt="リポソーム アドバンスト リペアセラム パープルリボン セット 2026">
+    </a>
+    <a class="block-page-favorite--btn block-item-detail-favorite js-animation-bookmark" href="javascript:location.href='https://maison.kose.co.jp/site/customer/bookmark.aspx?goods=CDS0465&amp;crsirefo_hidden='+ jQuery('#js_crsirefo_hidden').val()">
+      <div class="c-favorite-btn" data-module="Favorite">
+        <img src="/freepage/maison-kose/common/img/common/favorite/like.png" class="c-favorite-btn__img" alt="">
+      </div>
+    </a>
+  </div>
+  <div class="c-product__about" style="min-height: 145px;">
+    
+    <p class="c-product__brand">コスメデコルテ</p>
+    <a href="/site/cosmedecorte/g/gCDS0465/">
+    <p class="c-product__product-name" data-module="TruncateText" data-options="{ &quot;length&quot;: 36 }">
+      リポソーム アドバンスト リペアセラム パープルリボン セット 2026
+    </p><div style="height: 35px;"><div data-revico-goods="CDS0465" data-revico-layout="pc-goods-list-star"></div></div>
+    </a>
+
+    <p class="c-product__price">
+    
+         17,600円<span>（税込）</span>
+    
+    </p>
+
+  </div>
+  <div class="c-product__hashtag-area">
+    
+  </div>
+
+  
+  <div class="btn-items-cart">
+    <a class="block-list-add-cart-btn js-enhanced-ecommerce-add-cart block-list-add-cart-btn-no-purchase">現在購入頂けません</a>
+  </div>
+  
+</li>
+<li class="c-product__item is-item-number-1">
+  <p class="c-product__icon__wrap" style="min-height: 20px;">
+    <span class="c-product__icon c-product__icon-limited"><img src="/freepage/maison-kose/common/img/badge/comingsoon.png" alt="COMING SOON"></span>
+    <span class="c-product__icon c-product__icon-limited"><img src="/img/icon/limited.png" alt="限定品"></span>
+    
+    <span class="c-product__launch-date">11月1日発売</span>
+  </p>
+  <div class="c-product__thumb is-soon">
+    <a href="/site/cosmedecorte/g/gCDS0466/" class="c-product__thumb__img">
+      <img src="/img/goods/S/CDS0466_sub.png" alt="リポソーム アドバンスト リペアクリーム パープルリボン セット 2026">
+    </a>
+    <a class="block-page-favorite--btn block-item-detail-favorite js-animation-bookmark" href="javascript:location.href='https://maison.kose.co.jp/site/customer/bookmark.aspx?goods=CDS0466&amp;crsirefo_hidden='+ jQuery('#js_crsirefo_hidden').val()">
+      <div class="c-favorite-btn" data-module="Favorite">
+        <img src="/freepage/maison-kose/common/img/common/favorite/like.png" class="c-favorite-btn__img" alt="">
+      </div>
+    </a>
+  </div>
+  <div class="c-product__about" style="min-height: 145px;">
+    
+    <p class="c-product__brand">コスメデコルテ</p>
+    <a href="/site/cosmedecorte/g/gCDS0466/">
+    <p class="c-product__product-name" data-module="TruncateText" data-options="{ &quot;length&quot;: 36 }">リポソーム アドバンスト リペアクリーム パープルリボン セット 20…</p><div style="height: 35px;"><div data-revico-goods="CDS0466" data-revico-layout="pc-goods-list-star"></div></div>
+    </a>
+
+    <p class="c-product__price">
+    
+         12,100円<span>（税込）</span>
+    
+    </p>
+
+  </div>
+  <div class="c-product__hashtag-area">
+    
+  </div>
+
+  
+  <div class="btn-items-cart">
+    <a class="block-list-add-cart-btn js-enhanced-ecommerce-add-cart block-list-add-cart-btn-no-purchase">現在購入頂けません</a>
+  </div>
+  
+</li>
+</ul>
+</body></html>"""
 
 EMPTY_HTML = """<!doctype html><html lang="ja"><head>
 <meta charset="UTF-8">
@@ -2601,6 +2717,688 @@ def check_scraper_api_waitfor_object_and_http_code():
                 "not the API's own 'success' verdict",
                 type(handed) is int and handed == 403 and logged == [403])
 
+
+
+class _StubDriver:
+    """Enough of a driver for the shared fetch loop, in all three dialects.
+
+    One object answering every engine's primitives on purpose. The first
+    version of this stub spoke only Playwright's (`goto`, `content`), so the
+    Selenium control failed with `'_StubPage' object has no attribute 'get'`
+    — red both with the fix and without it, which is a broken check wearing
+    a working control's clothes (§22: check WHICH check caught the fault).
+    """
+    url = LISTING_URL
+    current_url = LISTING_URL
+    page_source = "<html><body>x</body></html>"
+
+    # Playwright
+    def goto(self, *a, **k):
+        return _StubResponse()
+
+    def content(self):
+        return self.page_source
+
+    def wait_for_timeout(self, ms):
+        pass
+
+    def query_selector_all(self, selector):
+        return []
+
+    def set_default_timeout(self, ms):
+        pass
+
+    def set_default_navigation_timeout(self, ms):
+        pass
+
+    # Selenium
+    def get(self, url):
+        return None
+
+    def find_elements(self, by, selector):
+        return []
+
+    def execute_script(self, *a, **k):
+        return None
+
+    def execute_cdp_cmd(self, *a, **k):
+        return {}
+
+    # pyppeteer (awaited through the session's bridge, which here is sync)
+    def querySelectorAll(self, selector):
+        return []
+
+    def evaluate(self, *a, **k):
+        return None
+
+    def setDefaultNavigationTimeout(self, ms):
+        pass
+
+
+class _StubResponse:
+    status = 200
+
+
+class _StubSession:
+    """`relaunch` must never be reached without a pool, which is half of
+    what the check above asserts."""
+
+    def __init__(self):
+        self.page = _StubDriver()
+        self.driver = self.page
+        self.bridge = self
+        self.relaunched = 0
+
+    def relaunch(self):
+        self.relaunched += 1
+
+    def run(self, value):
+        return value
+
+
+def _stub_args():
+    import types
+    return types.SimpleNamespace(
+        pages=1, retries=1, retry_delay=0.0, mode="listing",
+        out=os.path.join(tempfile.gettempdir(), "kose_stub"),
+        proxy_block_retries=2, dump_html=None, category=None,
+        solve_captcha="when-blocked", twocaptcha_key=None, min_score=0.7,
+        captcha_api="v2", concurrency=1, allow_empty=False)
+
+
+
+# ---------------------------------------------------------------------------
+# From the 2026-10-13 audit round. Each of these pins a defect that was real
+# in this repo, and each was controlled: the fix reverted, the named check
+# confirmed red, the fix restored.
+# ---------------------------------------------------------------------------
+
+def check_retries_zero_is_a_usage_error():
+    """`--retries 0` ran NO navigation and then judged the blank page.
+
+    The load loop is `range(1, retries + 1)`; with 0 it never executes, so
+    `goto` is not called and the engine classifies `about:blank` — 39 bytes
+    of empty document — as a result for a site that was never asked.
+
+    This is not hypothetical and it is not cosmetic. A third-party audit of
+    this repo on 2026-10-13 ran exactly that, got the 39-byte page and exit
+    4, and concluded in writing that the browser path was broken and should
+    be replaced by an HTTP one. The same command with `--retries 1`, same
+    address and same minute, returned 199,558 bytes and 24 products.
+    """
+    equal("--retries 3 is accepted", page_flow.attempts("3"), 3)
+    equal("--retries 1 is accepted", page_flow.attempts("1"), 1)
+    for bad in ("0", "-1", "x"):
+        raised = False
+        try:
+            page_flow.attempts(bad)
+        except argparse.ArgumentTypeError:
+            raised = True
+        check("--retries %s is refused as a usage error" % bad, raised)
+    # The billable path counts RETRIES rather than attempts, where 0 is
+    # meaningful: it means one attempt. Only a negative is refused there.
+    equal("the Scraper API path accepts 0", page_flow.extra_attempts("0"), 0)
+    raised = False
+    try:
+        page_flow.extra_attempts("-1")
+    except argparse.ArgumentTypeError:
+        raised = True
+    check("...and refuses a negative", raised)
+
+    for module in ENGINES:
+        path = os.path.join(HERE, module + ".py")
+        if not os.path.exists(path):
+            continue
+        src = open(path, encoding="utf-8").read()
+        check("%s: --retries goes through page_flow.attempts" % module,
+              '"--retries", type=page_flow.attempts' in src,
+              "a plain type=int lets 0 through and the loop then runs never")
+
+
+def check_a_blocked_page_without_a_proxy_does_not_crash():
+    """Selenium and pyppeteer raised AttributeError on a blocked page.
+
+    `mask(pool.current)` with no `--proxy` is `None.current`. Without a pool
+    `BLOCK_RETRIES_WITHOUT_POOL` is 1, so the branch runs on the FIRST block
+    — and the run exited 1, a CRASH, for a page that was merely blocked.
+    That destroys the blocked/empty/partial distinction §8 calls an
+    invariant, and the primary engine had the guard all along: it is the
+    "all three must agree" rule (§6) broken in the two quiet engines.
+
+    Asserted as BEHAVIOUR rather than by reading the source (§20): the first
+    version of this check walked the AST for an unguarded `pool.` attribute
+    and reported every engine broken, including the one that was correct.
+    This drives the real loop with no pool and a forced block, and asks only
+    that it does not raise.
+    """
+    for module in ENGINES:
+        engine = _import_engine(module)
+        if engine is None:
+            continue
+
+        calls = []
+        saved = (engine.handle_captcha_if_present,
+                 page_flow.classify, page_flow.classify_with_reason,
+                 getattr(engine, "_snapshot", None))
+        try:
+            engine.handle_captcha_if_present = lambda *a, **k: calls.append(1)
+            page_flow.classify = lambda html, status=None, url="": "blocked"
+            page_flow.classify_with_reason = (
+                lambda html, status=None, url="": ("blocked", "stub"))
+            engine._snapshot = lambda *a, **k: "<html><body>x</body></html>"
+
+            session = _StubSession()
+            args = _stub_args()
+            raised = None
+            try:
+                outcome = engine._fetch_one_page(
+                    session, args, None, 1, LISTING_URL)   # pool=None
+            except Exception as e:                          # noqa: BLE001
+                raised, outcome = e, None
+            check("%s: a blocked page with no --proxy does not raise" % module,
+                  raised is None, "%s: %s" % (type(raised).__name__, raised)
+                  if raised else "")
+            if outcome is not None:
+                check("%s: ...and is reported as blocked, not as a crash"
+                      % module, outcome.blocked_by is not None,
+                      str(outcome.state))
+        finally:
+            (engine.handle_captcha_if_present, page_flow.classify,
+             page_flow.classify_with_reason, snap) = saved
+            if snap is not None:
+                engine._snapshot = snap
+
+
+
+def check_every_paid_solve_goes_through_one_budget():
+    """`handle_captcha_if_present` runs TWICE per attempt; one was uncounted.
+
+    Measured on this repo with the solver stubbed and a forced challenge:
+    **3 invocations against `SOLVES_PER_PAGE = 1`** before the fix, 1 after.
+    The uncounted call repeats on every block-retry, so the constant read
+    like a limit and was advisory (§17, §23).
+
+    Asserted by PARSING rather than by grepping, because a grep for
+    `SOLVES_PER_PAGE` matches the constant, the comment that explains it and
+    the docstring of the function it guards — in a repo where the guard does
+    not cover the call.
+    """
+    for module in ENGINES:
+        path = os.path.join(HERE, module + ".py")
+        if not os.path.exists(path):
+            continue
+        tree = ast.parse(open(path, encoding="utf-8").read())
+        guarded, calls = set(), []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.If) and any(
+                    k in ast.dump(node.test)
+                    for k in ("budget", "solves_bought", "SOLVES_PER_PAGE")):
+                for part in [node.test] + node.body:
+                    for sub in ast.walk(part):
+                        if isinstance(sub, ast.Call):
+                            guarded.add(id(sub))
+            if isinstance(node, ast.Call):
+                name = (getattr(node.func, "id", None)
+                        or getattr(node.func, "attr", None))
+                if name and "captcha" in name.lower() and "present" in name.lower():
+                    calls.append(node)
+        check("%s has captcha call sites to check" % module, bool(calls))
+        unbudgeted = [c.lineno for c in calls if id(c) not in guarded]
+        check("%s: every paid solve is budgeted" % module, not unbudgeted,
+              "unbudgeted at line(s) %s" % unbudgeted)
+
+
+def check_output_is_written_atomically():
+    """`open(path, "w")` truncates before a byte is written.
+
+    A crash, a kill or a full disk halfway through leaves a SHORTER file
+    where a complete one was — which breaks exactly the promise `save()`
+    keeps by refusing to overwrite good output with an empty result. The
+    sidecar is the part that matters most: a truncated `<out>.meta.json`
+    beside good rows reads as a broken run over data that is fine.
+    """
+    import inspect
+    writers = []
+    for name in dir(output_writer):
+        fn = getattr(output_writer, name)
+        if not callable(fn) or getattr(fn, "__module__", None) != "output_writer":
+            continue
+        try:
+            src = inspect.getsource(fn)
+        except (OSError, TypeError):
+            continue
+        if "open(" not in src and "_atomic(" not in src:
+            continue
+        if not any(k in src for k in ("json.dump", "csv.DictWriter", ".meta.json")):
+            continue
+        writers.append((name, "_atomic(" in src))
+    check("the probe found the writers at all", len(writers) >= 3,
+          str(writers))
+    for name, atomic in writers:
+        check("output_writer.%s writes atomically" % name, atomic)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "out.json")
+        rows = [Product(sku="A", title="x")]
+        output_writer.write_json(rows, path)
+        before = open(path, "rb").read()
+
+        class _Boom(Exception):
+            pass
+        try:
+            with output_writer._atomic(path) as f:
+                f.write("half a file")
+                raise _Boom()
+        except _Boom:
+            pass
+        equal("an interrupted write leaves the good file untouched",
+              open(path, "rb").read(), before)
+        check("and leaves no .tmp behind",
+              not [x for x in os.listdir(tmp) if x.endswith(".tmp")])
+
+        # NamedTemporaryFile creates at 0600 and os.replace keeps the temp
+        # file's mode, so without the chmod every output comes out readable
+        # by its owner alone — a regression from open(), which honours the
+        # umask, and one that appears only once the write became atomic.
+        umask = os.umask(0)
+        os.umask(umask)
+        equal("a NEW file gets what open() would have given it",
+              stat.S_IMODE(os.stat(path).st_mode), 0o666 & ~umask)
+        os.chmod(path, 0o600)
+        output_writer.write_json(rows, path)
+        equal("an EXISTING file keeps its own mode, however tightened",
+              stat.S_IMODE(os.stat(path).st_mode), 0o600)
+
+
+def check_csv_formula_cells_are_neutralised():
+    """A cell beginning `=`, `+`, `-`, `@` or whitespace is a FORMULA.
+
+    Every string in these rows was written by whoever listed the product.
+    CSV only: the JSON keeps the site's bytes, and `csv_cells_escaped` in
+    the sidecar declares the divergence rather than leaving it to be found
+    as a stray apostrophe.
+
+    It does NOT fire on this site — 0 of 42,  measured over a live run — and
+    that is worth shipping and not worth advertising as a catch.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "t.csv")
+        rows = [Product(sku="A", title='=HYPERLINK("http://x","go")', price=1.0),
+                Product(sku="B", title="+cmd|' /c calc'!A1"),
+                Product(sku="C", title="ふつうの商品名", price=-5.0)]
+        escaped = output_writer.write_csv(rows, path)
+        equal("two formula-shaped cells were neutralised", escaped, 2)
+        got = list(csv.DictReader(open(path, encoding="utf-8")))
+        check("the formula cell is prefixed",
+              got[0]["title"].startswith(output_writer.CSV_FORMULA_ESCAPE))
+        equal("an ordinary title is untouched", got[2]["title"], "ふつうの商品名")
+        # Escaping a number would turn -5 into text and break every sum a
+        # consumer writes over the column.
+        equal("a NEGATIVE NUMBER is left alone", got[2]["price"], "-5.0")
+
+
+def check_the_sites_own_truncation_is_undone():
+    """The site shortens a long name in the BROWSER, and only there.
+
+    Each tile carries `data-module="TruncateText" data-options='{"length":
+    36}'`, and the site's own JavaScript rewrites the name node after load:
+    36 characters and an ellipsis. A plain HTTP fetch sees the full name the
+    server rendered; a browser sees the short one.
+
+    So for as long as this repo had only browser engines, it returned a
+    SHORTER title than the site publishes for every long name, and nothing
+    could see it — there was no non-browser engine to disagree with. It took
+    `http_scraper.py` existing: on one live 3-page run the two engines
+    differed on **10 of 72 rows**, every one of them a title.
+
+    The rule is narrow on purpose. `0 of 171` server-rendered names in the
+    captures end in an ellipsis, while every truncated one does, so the
+    marker is unambiguous — and the thumbnail's `alt`, which the rewrite
+    does not touch, is present on 171 of 171 and differs from the
+    server-rendered name on zero of them once whitespace is normalised.
+    """
+    full = "リポソーム アドバンスト リペアクリーム パープルリボン セット 2026"
+    tile = ('<ul><li class="c-product__item">'
+            '<div class="c-product__thumb">'
+            '<a href="/site/x/g/gAAA/" class="c-product__thumb__img">'
+            '<img src="/img/goods/S/AAA_sub.png" alt="%s" /></a></div>'
+            '<div class="c-product__about">'
+            '<p class="c-product__brand">コスメデコルテ</p>'
+            '<a href="/site/x/g/gAAA/"><p class="c-product__product-name" '
+            'data-module="TruncateText" data-options=\'{ "length": 36 }\'>'
+            '%s…</p></a>'
+            '<p class="c-product__price">1,000円<span>（税込）</span></p>'
+            '</div><div class="btn-items-cart"><a>カートに入れる</a></div>'
+            '</li></ul>') % (full, full[:36])
+    rows = product_parser.parse_products(tile, LISTING_URL)
+    equal("a truncated tile recovers the full name", rows[0].title, full)
+
+    # And an ordinary tile is untouched: the fixtures carry no ellipsis, so
+    # nothing here may change what they parse to.
+    for row in product_parser.parse_products(LISTING_HTML, LISTING_URL):
+        check("an untruncated title is left alone (%s)" % row.sku,
+              not row.title.endswith(("…", "...")), row.title)
+
+    # A site that one day ships an empty or SHORTER alt must not make a
+    # title worse than the truncated text already is.
+    worse = tile.replace('alt="%s"' % full, 'alt=""')
+    equal("an empty alt leaves the truncated text in place",
+          product_parser.parse_products(worse, LISTING_URL)[0].title,
+          full[:36] + "…")
+
+
+def check_the_http_engine_is_the_same_scrape():
+    """A fourth engine, over `requests`, reading the same parser.
+
+    It exists because this site server-renders its grid and gates nothing —
+    measured 2026-10-13, a project UA, a requests UA, a Chrome UA and NO UA
+    at all are served byte-identical pages — so a browser buys nothing here.
+    Live on the same two pages, all four engines returned 48 of 48 identical
+    rows.
+
+    What it must NOT do is accept a flag it cannot honour: a setting that
+    looks configurable and does nothing is worse than one that is absent
+    (§3). Those are refused as usage errors.
+    """
+    path = os.path.join(HERE, "http_scraper.py")
+    if not os.path.exists(path):
+        check("http_scraper.py exists", False)
+        return
+    src = open(path, encoding="utf-8").read()
+
+    check("it reads the shared parser, not its own",
+          "from product_parser import" in src)
+    check("it shares the output contract", "finish_run" in src)
+    check("it shares the page-state policy", "page_flow.classify" in src)
+    check("--retries goes through page_flow.attempts",
+          '"--retries", type=page_flow.attempts' in src)
+    check("it threads the HTTP status to the classifier",
+          "page_flow.classify(html, status" in src,
+          "the status is this engine's one advantage over Selenium")
+    check("it merges in PAGE order", "sorted(outcomes, key=" in src)
+    check("it masks credentials in an exception message",
+          "_mask(str(e))" in src,
+          "requests puts the full URL, query string included, into every "
+          "connection error")
+    check("every request is bounded", "REQUEST_TIMEOUT" in src)
+    for flag in ("--cdp-endpoint", "--solve-captcha", "--fingerprint"):
+        check("%s is refused rather than ignored" % flag,
+              "_refuse(p, \"%s\"" % flag in src)
+
+    # The flags it DOES share must mean the same thing as in the engines.
+    shared = {"--url", "--pages", "--category", "--format", "--out",
+              "--delay", "--retries", "--retry-delay", "--proxy",
+              "--proxy-file", "--proxy-rotate", "--proxy-shuffle",
+              "--proxy-block-retries", "--allow-empty", "--dump-html",
+              "--mode", "--tags"}
+    flags = set(_argparse_flags("http_scraper"))
+    missing = shared - flags
+    check("it carries the contract flags that apply to it", not missing,
+          str(sorted(missing)))
+    # And NOT the browser-only ones, beyond the four it refuses by name.
+    for absent in ("--headless", "--headful", "--fp-tags", "--fp-country",
+                   "--captcha-api", "--min-score"):
+        check("%s is absent from the HTTP engine" % absent,
+              absent not in flags,
+              "a browser flag on a browserless engine is a lie")
+
+
+def check_a_failed_run_still_leaves_something_machine_readable():
+    """`<out>.last_attempt.json`, beside a sidecar that may describe good data.
+
+    §9 is right that a FAILED run must write no `<out>.meta.json`: `save`
+    leaves the previous good output in place, and a "failed" sidecar beside
+    it would contradict it. The gap that left — a failed run told a caller
+    nothing but an exit code — was raised by a third-party audit on
+    2026-10-13 and is the half of that report which needed no argument.
+
+    A separate NAME is what lets both facts coexist.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        prefix = os.path.join(tmp, "out")
+        rows = [Product(sku="A", title="x", price=1.0)]
+        rc = output_writer.finish_run(
+            rows, prefix, "json", False, blocked=False,
+            stop_reason="completed", pages_requested=1, pages_completed=1,
+            start_url=LISTING_URL, final_url=LISTING_URL)
+        equal("a good run exits 0", rc, 0)
+        check("...and writes a sidecar",
+              os.path.exists(prefix + ".meta.json"))
+        check("...and a last_attempt beside it",
+              os.path.exists(prefix + ".last_attempt.json"))
+
+        rc = output_writer.finish_run(
+            [], prefix, "json", False, blocked=True,
+            stop_reason="blocked_challenge", pages_requested=1,
+            pages_completed=0, start_url=LISTING_URL, final_url=LISTING_URL)
+        check("a failed run does not exit 0", rc != 0)
+        good = json.load(open(prefix + ".json", encoding="utf-8"))
+        equal("the previous rows are untouched", len(good), 1)
+        meta = json.load(open(prefix + ".meta.json", encoding="utf-8"))
+        equal("the sidecar still describes the GOOD run", meta["status"],
+              "complete")
+        last = json.load(open(prefix + ".last_attempt.json", encoding="utf-8"))
+        equal("the manifest describes the FAILED one", last["status"],
+              "failed")
+        equal("...and says why", last["stop_reason"], "blocked_challenge")
+
+
+def check_pyproject_matches_the_files_on_disk():
+    """`pyproject.toml` and `requirements*.txt` are kept in sync BY HAND.
+
+    CI installs only `requirements.txt`, so a drift between the two goes
+    unnoticed there (§6) — which is why it is checked here instead. Raised
+    by a third-party audit on 2026-10-13 as "one authoritative definition,
+    or a check that they have not diverged"; this is the second, because the
+    two files are read by different tools and neither can be generated from
+    the other without a build step this repo does not have.
+
+    Three things are compared: every top-level module is declared, every
+    declared module exists, and every engine's extra names the same pins its
+    requirements file does.
+    """
+    text = open(os.path.join(HERE, "pyproject.toml"), encoding="utf-8").read()
+
+    declared = set(re.findall(r'^\s*"([a-z_]+)",\s*$', text, re.M))
+    on_disk = {os.path.basename(f)[:-3] for f in glob.glob(os.path.join(HERE, "*.py"))}
+    on_disk -= {"smoke_test"}          # the suite ships in no wheel
+    missing = sorted(on_disk - declared)
+    check("every module on disk is in py-modules", not missing,
+          "%s — setuptools refuses to guess among this many top-level "
+          "modules, so an undeclared one is simply absent from an install"
+          % missing)
+    phantom = sorted(d for d in declared
+                     if d not in on_disk and not d.startswith(("beautifulsoup",
+                                                               "requests",
+                                                               "playwright",
+                                                               "selenium",
+                                                               "pyppeteer")))
+    check("every declared module exists", not phantom, str(phantom))
+
+    for engine in ("playwright", "selenium", "puppeteer"):
+        req = os.path.join(HERE, "requirements-%s.txt" % engine)
+        if not os.path.exists(req):
+            continue
+        pins = {ln.split("#")[0].strip()
+                for ln in open(req, encoding="utf-8")
+                if ln.strip() and not ln.strip().startswith("#")}
+        pins = {p for p in pins if p}
+        for pin in pins:
+            check("pyproject's [%s] extra carries %s" % (engine, pin),
+                  pin in text,
+                  "requirements-%s.txt pins it and the extra does not, so "
+                  "`pip install .[%s]` installs something different from "
+                  "what the README tells a user to run" % (engine, engine))
+
+    core = {ln.split("#")[0].strip()
+            for ln in open(os.path.join(HERE, "requirements.txt"), encoding="utf-8")
+            if ln.strip() and not ln.strip().startswith("#")}
+    for pin in {c for c in core if c}:
+        check("pyproject's dependencies carry %s" % pin, pin in text)
+
+
+def check_the_console_scripts_point_at_real_entry_points():
+    """`pip install .` must give a command that exists.
+
+    A `[project.scripts]` naming a function that is not there installs a
+    console script that fails with ImportError on its first run — and
+    nothing in a normal test run imports it, because every example in this
+    repo invokes the modules as scripts.
+    """
+    text = open(os.path.join(HERE, "pyproject.toml"), encoding="utf-8").read()
+    block = re.search(r"\[project\.scripts\]\n((?:[^\[]*\n)*)", text)
+    check("there is a [project.scripts] table", block is not None)
+    if not block:
+        return
+    entries = re.findall(r'^\s*[\w-]+\s*=\s*"([\w_]+):([\w_]+)"\s*$',
+                         block.group(1), re.M)
+    check("it names at least one command", bool(entries))
+    for module, func in entries:
+        path = os.path.join(HERE, module + ".py")
+        check("%s.py exists for the console script" % module,
+              os.path.exists(path))
+        if not os.path.exists(path):
+            continue
+        tree = ast.parse(open(path, encoding="utf-8").read())
+        names = {n.name for n in tree.body
+                 if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        check("%s defines %s()" % (module, func), func in names)
+        # ...and the module is still runnable as a script, because that is
+        # what the README, the workflows and the Dockerfile all use.
+        src = open(path, encoding="utf-8").read()
+        check("%s is still runnable as a script" % module,
+              '__name__ == "__main__"' in src)
+
+
+def check_every_cli_is_covered_by_the_help_check():
+    """A new CLI that nothing runs `--help` on is a CLI nobody tested.
+
+    `ci_checks.py --help-check` is what CI runs, and its list is written by
+    hand. `http_scraper.py` was added to this repo on 2026-10-13 and the
+    list is exactly the kind of thing that does not get updated with it.
+    """
+    sys.path.insert(0, os.path.join(HERE, ".github"))
+    try:
+        import ci_checks
+    except ImportError as e:
+        skip("ci_checks", str(e))
+        return
+    entry_points = set()
+    for path in glob.glob(os.path.join(HERE, "*.py")):
+        name = os.path.basename(path)
+        if name in ("smoke_test.py",):
+            continue
+        src = open(path, encoding="utf-8").read()
+        if "argparse.ArgumentParser(" in src and '__name__ == "__main__"' in src:
+            entry_points.add(name)
+    missing = sorted(entry_points - set(ci_checks.CLIS))
+    check("every CLI in the repo is in ci_checks.CLIS", not missing,
+          "%s — CI runs --help on that list and on nothing else" % missing)
+
+
+def check_no_marker_fires_on_a_page_fetched_over_CDP():
+    """The fixture that matters is the one fetched the way a run fetches.
+
+    2Captcha's Scraping Browser ships an auto-solve extension that injects
+    its own hunters into EVERY page it loads. Counted on a 101 KB listing
+    pulled over `--cdp-endpoint` on 2026-10-13, holding 24 real product
+    tiles:
+
+        chrome-extension:// scripts      16
+        `captcha` (bare)                 21
+        `recaptcha` (bare)                2
+        `cf-turnstile`                    1
+        `<captcha-widgets>`               1
+        `recaptcha/api.js`                0   <- what the SITE would ship
+        `www.google.com/recaptcha`        0
+
+    This repo carried a bare `recaptcha` marker until that page existed, and
+    it FIRED on it. Nothing broke, because tiles are checked before markers
+    (§17) — but a page with no tiles, an exhausted tag facet say, would have
+    been reported as a challenge over CDP: exit 3 for a correct answer.
+
+    The claim "no marker fires on a good page" had been true of every
+    capture this repo had, and every one of them was fetched LOCALLY. That
+    is §21's guard passing for the wrong reason, and §24 says to commit a
+    CDP-fetched fixture for exactly this.
+    """
+    check("the fixture really carries the extension's injections",
+          CDP_PAGE_HTML.count("chrome-extension://") >= 10,
+          str(CDP_PAGE_HTML.count("chrome-extension://")))
+    check("...including the bare words a loose marker would match",
+          CDP_PAGE_HTML.count("recaptcha") >= 2
+          and "cf-turnstile" in CDP_PAGE_HTML)
+    check("...and the empty mount point it also injects",
+          "<captcha-widgets" in CDP_PAGE_HTML)
+    check("...and it is a GOOD page: real product tiles on it",
+          product_parser.tile_count(CDP_PAGE_HTML) >= 2)
+
+    equal("no marker fires on it",
+          product_parser.detect_bot_challenge(CDP_PAGE_HTML), None)
+    equal("so it classifies as content",
+          page_flow.classify(CDP_PAGE_HTML, 200), "content")
+
+    # And the same page with its tiles taken away must STILL be clean —
+    # which is the case that would have exited 3.
+    tileless = CDP_PAGE_HTML.replace('<li class="c-product__item',
+                                     '<li class="x')
+    equal("...and still clean once the tiles are gone",
+          product_parser.detect_bot_challenge(tileless), None)
+
+    # The narrowing must not have blinded it: a real loader is still caught.
+    real = tileless.replace(
+        "</head>",
+        '<script src="https://www.google.com/recaptcha/api.js"></script>'
+        "</head>", 1)
+    equal("a REAL reCAPTCHA loader is still detected",
+          page_flow.classify(real, 200), "challenge")
+
+    # §24: the marker set must score zero WITHOUT any extension strip, or
+    # the strip is load-bearing and the next marker added inherits the hole.
+    check("this repo carries no chrome-extension strip to lean on",
+          "chrome-extension" not in open(
+              os.path.join(HERE, "product_parser.py"), encoding="utf-8"
+          ).read().split("BOT_CHALLENGE_MARKERS")[1][:2000].replace(
+              "chrome-extension://…/content", ""),
+          "if a strip is added, this check stops proving anything")
+
+
+def check_a_url_from_the_environment_does_not_block_the_builders():
+    """`KOSE_URL` in `.env` made `--tags` and `--category` unusable.
+
+    `env_config.apply` fills only UNSET values, so after it runs `args.url`
+    is the same whether the user typed one or `.env` supplied one. Every CLI
+    here then refused `--tags` with "--url already names what to fetch" —
+    for anyone who had set the variable that `.env.example` ships and the
+    README recommends. The two flags did not work in the setup this repo
+    tells people to create, and had not since the repo was written.
+
+    Found on 2026-10-13 while regenerating the sample output, which is the
+    only reason it surfaced: every example in the README passes `--url`.
+    """
+    for module in list(ENGINES) + ["http_scraper"]:
+        path = os.path.join(HERE, module + ".py")
+        if not os.path.exists(path):
+            continue
+        src = open(path, encoding="utf-8").read()
+        check("%s captures what the user typed before env_config runs"
+              % module, "typed_url = args.url" in src)
+        check("%s: the --url/--tags conflict is judged on that" % module,
+              "if typed_url and args.tags:" in src,
+              "judging it on args.url means an environment variable reads "
+              "as a flag the user passed")
+        check("%s: and so is the builder" % module,
+              "if not typed_url and args.tags:" in src)
+        # The capture has to come BEFORE the environment is applied, or it
+        # captures the same filled-in value and nothing changes. Compared
+        # against the CALL, not the string: the first version of this check
+        # matched the word inside its own explanatory comment and reported
+        # every engine broken (§22 — a check that matches a comment rather
+        # than the code).
+        check("%s: captured before env_config.apply(args) runs" % module,
+              src.index("typed_url = args.url")
+              < src.index("env_config.apply(args)"),
+              "captured after apply() it is the same value")
 
 
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]

@@ -389,8 +389,18 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
+def _cli():
+    """Console entry point, so `pip install .` gives a command.
+
+    The module stays runnable as a script — `python diff_runs.py …` is
+    what every example in the README and the workflows uses — and
+    this is the same code path rather than a second one.
+    """
     try:
         sys.exit(main())
     except KeyboardInterrupt:
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    _cli()

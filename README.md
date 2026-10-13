@@ -8,10 +8,10 @@
 [![engines](https://img.shields.io/badge/engines-playwright%20%7C%20selenium%20%7C%20puppeteer%20%7C%20scraper--api-lightgrey)](#engine-limits)
 [![no account needed](https://img.shields.io/badge/runs%20without%20an%20account-yes-brightgreen)](#you-do-not-need-a-2captcha-key-a-proxy-or-a-browser)
 
-**Maison KOSÉ listing-page scraper** (Playwright, Selenium, Puppeteer, or the
-2Captcha Scraping Browser API via CDP) — product listings, prices, brands,
-stock and Japan's two consumption-tax rates, captcha solving, proxies,
-fingerprints.
+**Maison KOSÉ listing-page scraper** (plain HTTP, Playwright, Selenium,
+Puppeteer, or the 2Captcha Scraping Browser API via CDP) — product listings,
+prices, brands, stock and Japan's two consumption-tax rates, captcha solving,
+proxies, fingerprints.
 
 ---
 
@@ -50,14 +50,25 @@ address (netcup, Nuremberg, AS197540), against
 | **no `User-Agent` header at all** | HTTP 200, 90,310 bytes — byte-identical |
 | 12 pages back to back, no delay | 12 × HTTP 200 |
 
-and **zero captcha markers of any vendor across 13 captures** — no reCAPTCHA,
-hCaptcha, Turnstile, DataDome, PerimeterX, Incapsula, Kasada or AWS WAF, no
-`data-sitekey`, no challenge iframe, on listings, product pages, the site's
-own 404 and an exhausted facet alike.
+and **zero captcha markers of any vendor on any page the SITE serves** — no
+reCAPTCHA, hCaptcha, Turnstile, DataDome, PerimeterX, Incapsula, Kasada or
+AWS WAF, no `data-sitekey`, no challenge iframe, on listings, product pages,
+the site's own 404 and an exhausted facet alike.
+
+One honest footnote, because the first version of this sentence was wrong by
+omission. A page fetched through the **Scraping Browser API** does carry
+captcha strings — sixteen of them on one 101 KB listing — and not one is
+Kosé's: 2Captcha's auto-solve extension injects a hunter script per vendor
+into every page it loads, including `cf-turnstile`, a bare `recaptcha` and an
+empty `<captcha-widgets>` mount. They are the client's, not the site's. This
+repo's marker set was narrowed on 2026-10-13 so none of them matches, and a
+CDP-fetched page is now one of the fixtures the suite runs against — because
+a guard is only as good as the fixture it runs against, and every capture
+this repo had until then was fetched locally.
 
 The grid is server-rendered into the first response, so a plain HTTP client
-gets the whole page. The three browser engines are a convenience here, not a
-necessity.
+gets the whole page — which is why `http_scraper.py` is the recommended
+engine. A browser here is a convenience, not a necessity.
 
 **What the paid products would buy you, if that changes or at volume:**
 
@@ -77,11 +88,25 @@ necessity.
 
 ## Install
 
+**The short version — no browser at all:**
+
 ```bash
 git clone https://github.com/2scraper/kose-scraper
 cd kose-scraper
 python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt            # core: beautifulsoup4, requests
+pip install -r requirements.txt            # beautifulsoup4, requests
+python http_scraper.py --category c15 --pages 3
+```
+
+That is the whole install for the recommended path. `http_scraper.py` reads
+the same pages with the same parser and writes the same rows — the site
+server-renders its grid, so there is nothing for a browser to do (measured
+below).
+
+**If you want a browser** — for the Scraping Browser API, for a captcha that
+does not exist yet, or to check the two against each other:
+
+```bash
 pip install -r requirements-playwright.txt # then ONE engine
 playwright install chromium
 ```
@@ -94,9 +119,12 @@ if you need more than one.
 
 ## Use
 
+Every example below works with `http_scraper.py` and with
+`playwright_scraper.py`, which take the same flags and return the same rows.
+
 ```bash
-# a brand's catalogue, three pages
-python playwright_scraper.py \
+# a brand's catalogue, three pages — no browser needed
+python http_scraper.py \
     --url "https://maison.kose.co.jp/site/cosmedecorte/c/c15/" --pages 3
 
 # the same thing by category id — the id is the only thing that selects one
@@ -109,10 +137,29 @@ python playwright_scraper.py --tags "シワ改善,スキンケア" --pages 2
 python playwright_scraper.py --mode product \
     --url "https://maison.kose.co.jp/site/onebykose/g/gMUSC/"
 
-# no local browser at all
+# the same scrape through a real browser, when you want one
+python playwright_scraper.py --category c15 --pages 3
+
+# no local browser AND no local Python dependency on one — 2Captcha's
+# hosted browser over HTTP
 python scraper_api_client.py --key "$TWOCAPTCHA_KEY" \
     --url "https://maison.kose.co.jp/site/cosmedecorte/c/c15/"
 ```
+
+### Which engine
+
+| | needs | use it for |
+|---|---|---|
+| `http_scraper.py` | `requests` | **the default.** Nothing here is gated, so this is the whole job |
+| `playwright_scraper.py` | Chromium | `--cdp-endpoint`, `--fingerprint`, a future captcha, `--concurrency` |
+| `selenium_scraper.py` | chromedriver | parity; cannot authenticate a remote CDP endpoint or a proxy |
+| `puppeteer_scraper.py` | pyppeteer | parity; can authenticate a remote CDP endpoint |
+| `scraper_api_client.py` | a 2Captcha key | one page per call, no local browser at all |
+
+Measured 2026-10-13 on the same three pages, no delay: **4.8–6.0 s over HTTP
+against 9.2–10.6 s through Playwright**, identical rows. The four engines
+were run against the same two pages the same day and returned **48 of 48
+identical rows**, every column.
 
 Output is `kose_products.json` + `.csv` plus a `kose_products.meta.json`
 sidecar. `python3 env_config.py` prints what was picked up from `.env`,
@@ -122,21 +169,23 @@ without printing secrets.
 
 ## What a run actually returns
 
-Measured 2026-09-18 across four live runs — 216 rows over the category route,
-the tag route and a product page:
+Measured 2026-10-13 by walking a whole brand catalogue — 308 rows over 13
+pages of `/c/c15/`:
 
 | column | coverage |
 |---|---|
-| `title` `url` `sku` `brand` | 216 / 216 |
-| `price` `currency` `tax_rate` | 216 / 216 |
-| `in_stock` `image_url` | 216 / 216 |
+| `title` `url` `sku` `brand` | 308 / 308 |
+| `price` `currency` `tax_rate` | 308 / 308 |
+| `in_stock` `image_url` | 308 / 308 |
 
-Prices ran **¥495 to ¥264,000**. A 3-page run of `/c/c15/` returned **72
-products, 72 distinct skus, status `complete`, exit 0**.
+Prices ran **¥220 to ¥264,000**; 41 of the 308 were out of stock and 2
+carried the reduced 8% tax rate. Status `complete`, exit 0, 26 s.
 
-**All three engines agree.** Playwright, Selenium and pyppeteer were run
-against the same two pages on the same day: **48 of 48 rows identical** on
-sku, price, brand and stock.
+**All four engines agree.** `http_scraper`, Playwright, Selenium and
+pyppeteer were run against the same two pages the same day: **48 of 48 rows
+identical**, every column — which is a stronger claim than it was a month
+ago, because the browserless engine is what found the browser ones were
+returning truncated titles.
 
 ### Columns worth knowing about
 
@@ -182,6 +231,27 @@ needs the measurement written down:
 
 Each of these cost time to find and each is guarded by a check.
 
+**`--retries 0` used to run no request at all, and then judge the blank
+page.** The load loop is `range(1, retries + 1)`, so zero attempted nothing,
+and the engine classified `about:blank` — a 39-byte empty document — as the
+site's answer. It is a **usage error** now, because of how it failed: a
+third-party audit ran exactly that on 2026-10-13, got the 39-byte page and
+exit 4, and concluded in writing that the browser path was broken and should
+be replaced. The same command with `--retries 1`, same address and same
+minute, returned 199,558 bytes and 24 products. If you are reading an old
+script that passes `--retries 0`, it has been getting nothing.
+
+**The site shortens long product names in the BROWSER, and only there.**
+Each tile carries `data-module="TruncateText" data-options='{"length": 36}'`
+and the site's own JavaScript rewrites the name after load: 36 characters
+and an ellipsis. A plain HTTP fetch sees the full name the server rendered.
+So until this repo had a browserless engine, every long title came back
+short — **10 of 72 rows** on one live 3-page run — and nothing could see it,
+because there was nothing to disagree with. The parser now recovers the full
+name from the thumbnail's `alt`, which the rewrite does not touch and which
+is present on 171 of 171 measured tiles. The canary runs both engines daily
+and fails if any field differs.
+
 **The brand in a URL selects nothing.** `/site/xyz/c/c15/` returns
 byte-identical bytes (97,017) to `/site/cosmedecorte/c/c15/`, and the page's
 own `rel=canonical` rewrites it. Only the `cNN` addresses a category and only
@@ -190,12 +260,17 @@ listing genuinely mixes brands, **11 of them across 72 rows** on a live run.
 
 **A category listing walked past its end serves its LAST PAGE AGAIN.** Not a
 404 and not an empty grid: `/c/c15_p14/` and `/c/c15_p15/` each return the
-same 71,199 bytes as `/c/c15_p13/`, HTTP 200, with 16 real tiles on them. A
-run that stopped on "a page came back empty" would never stop. This scraper
-plans against the site's own `N／Mページ` counter — `/c/c15/` states 13 pages,
-and 12 × 24 + 16 = 304 products is the whole of Cosme Decorté — and still
-stops on "this page added no new sku". A TAG listing ends differently, with a
-genuinely empty page, and publishes no counter at all.
+same bytes as `/c/c15_p13/`, HTTP 200, with real tiles on them. A run that
+stopped on "a page came back empty" would never stop. This scraper plans
+against the site's own `N／Mページ` counter and still stops on "this page
+added no new sku". A TAG listing ends differently, with a genuinely empty
+page, and publishes no counter at all.
+
+Walking the whole of Cosme Decorté, 2026-10-13: `/c/c15/` states **13
+pages** and yields **308 products**, every one with a title, url, sku,
+brand, price, currency, stock state, image and tax rate, in **26 s** over
+HTTP. That number is dated because it moves — the same walk a month earlier
+returned 304.
 
 **The wrong pagination parameter fails silently.** On a tag listing `?p=2`
 works while `&pageno=2` and `&page=2` are ignored and return page 1 with HTTP
@@ -267,24 +342,48 @@ into 264. Every fixture in the suite pins the value, not the coverage.
 Honest about the gap, because §13 of this family's playbook says a claim is
 measured or absent:
 
-| path | status, 2026-09-18 |
+| path | status, 2026-10-13 |
 |---|---|
-| Playwright, listing / tags / product | **verified** — 72, 72 and 1 rows, exit 0 |
-| Selenium, listing | **verified** — 48 rows, identical to Playwright's |
-| pyppeteer, listing | **verified** — 48 rows, identical to Playwright's |
-| Scraper API (`scraper_api_client.py`) | **verified** — 24 rows, 90,835 bytes, $0.0005 |
+| `http_scraper.py`, listing / tags / product | **verified** — 308 rows over 13 pages, exit 0 |
+| Playwright, listing / tags / product | **verified** — identical rows, exit 0 |
+| Selenium, listing | **verified** — 48 rows, identical to the HTTP engine's |
+| pyppeteer, listing | **verified** — 48 rows, identical to the HTTP engine's |
+| Scraper API (`scraper_api_client.py`) | **verified** — 24 rows, $0.0005 |
 | `--fingerprint` (2Captcha Fingerprint API) | **verified** — JP fingerprint applied, 24 rows |
+| `--cdp-endpoint` (Scraping Browser) | **verified 2026-10-13** — 24 rows over a `country-de` profile, exit 0. It was unverified a month ago because the only profile to hand had expired; two of the three tried today still answer `401`, which is what an expired one looks like. |
+| `--concurrency 3` | **verified** — 120 rows over 5 pages, merged in page order although they arrived 4-3-2-5 |
 | credential masking in errors | **verified** — a deliberately wrong endpoint's password appears 0 times in the output, including in Playwright's own five-line call log |
-| `--cdp-endpoint` (Scraping Browser) | **not verified here** — the profile available to this machine had expired (`401 deny_no_user`). Those credentials live about a day; the code path is the family's and is exercised by its siblings. |
 | `--solve-captcha` | **never fired** — no challenge has been observed on this site at all |
 
 ## Exit codes
 
 `0` ok · `1` crash · `2` bad usage · `3` blocked · `4` zero products ·
-`5` remote API error · `6` partial
+`5` the content was never obtained · `6` partial
 
 A run that finds nothing writes nothing — it will not replace last night's
 good output with `[]`. Pass `--allow-empty` to opt out.
+
+### What a failed run leaves behind
+
+Three files, and the distinction between them is the point:
+
+| file | describes |
+|---|---|
+| `<out>.json` / `.csv` | the last run that produced rows |
+| `<out>.meta.json` | **that** run — never overwritten by a failed one |
+| `<out>.last_attempt.json` | the MOST RECENT attempt, successful or not |
+
+A failed run deliberately writes no sidecar: `save` leaves the previous good
+output in place, and a `"failed"` sidecar beside good rows would contradict
+them and make `diff_runs.py` refuse a comparison of data that is fine. The
+cost of that used to be that a failed run left a caller nothing but an exit
+code. `last_attempt.json` is the fix — a separate NAME, so both facts can be
+true at once. It carries the status, the stop reason, the engine, its driver
+version and how long the attempt took.
+
+Every one of those files is written atomically — to a temporary file beside
+the target, then renamed — so a crash, a kill or a full disk cannot leave a
+truncated file where a complete one was.
 
 ## Tests
 

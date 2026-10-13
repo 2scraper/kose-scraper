@@ -33,8 +33,13 @@ REPO = Path(__file__).resolve().parent.parent
 # need them. An ImportError naming one of these is expected, not a failure.
 ENGINE_LIBS = ("playwright", "pyppeteer", "selenium", "webdriver_manager")
 
-CLIS = ["playwright_scraper.py", "puppeteer_scraper.py", "selenium_scraper.py",
-        "scraper_api_client.py", "fingerprint_client.py", "env_config.py"]
+# Every entry point in the repo, because CI runs `--help` on this list and
+# on nothing else. `diff_runs.py` had never been on it — found on 2026-10-13
+# by a check written for `http_scraper.py`, which is the usual way a
+# hand-written list is discovered to be short.
+CLIS = ["http_scraper.py", "playwright_scraper.py", "puppeteer_scraper.py",
+        "selenium_scraper.py", "scraper_api_client.py",
+        "fingerprint_client.py", "env_config.py", "diff_runs.py"]
 
 SAMPLE_FILES = ("sample_output.json", "sample_output.csv")
 

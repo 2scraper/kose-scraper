@@ -10,16 +10,15 @@
 # all, with no challenge of any kind. A GitHub runner is a datacentre address
 # too, so this workflow re-measures that claim every morning.
 #
-# CLAUDE.md §11 says a canary that CANNOT pass must skip rather than fail,
-# because a check that is always red teaches everyone to ignore checks. The
-# other half of that rule applies here: **a canary that CAN pass without a
-# credential must never be gated on one.** If Kosé ever puts its catalogue
-# behind a key or a bot manager, this badge goes red the next morning and the
-# README's claim is retested without anyone remembering to.
+# **A canary that CAN pass without a credential must never be gated on one.**
+# If Kosé ever puts its catalogue behind a key or a bot manager, this badge
+# goes red the next morning and the README's claim is retested without anyone
+# remembering to.
 #
-# The last job is the exception and it is guarded: it exercises the PAID path
-# (the Scraping Browser API over CDP), which cannot run without a secret, so
-# it skips with a ::notice:: when none is set.
+# The last job exercises the PAID path (the Scraping Browser API over CDP),
+# which cannot run without a secret. It does not pass by skipping: with no
+# secret it FAILS with an ::error:: naming the secret, because a green check
+# that tested nothing reads exactly like one that tested something.
 #
 #     gh secret set KOSE_CDP_ENDPOINT --repo 2scraper/kose-scraper
 #
@@ -40,8 +39,8 @@ permissions:
 
 env:
   # Cosme Decorté's catalogue: 13 pages of 24 on 2026-09-18, so three pages
-  # really is three pages. §11: with one page pagination is never exercised,
-  # which is exactly how a silent single-page bug survived in a sibling repo.
+  # really is three pages. With one page pagination is never exercised, which
+  # is exactly how a silent single-page bug survived in a sibling repo.
   CANARY_URL: "https://maison.kose.co.jp/site/cosmedecorte/c/c15/"
   CANARY_PRODUCT: "https://maison.kose.co.jp/site/onebykose/g/gMUSC/"
 
@@ -105,7 +104,7 @@ jobs:
               if not ok:
                   failures.append(f"{label}: {detail}")
 
-          # §20: fail on a parser failure BY NAME. "0 products" would send
+          # Fail on a parser failure BY NAME. "0 products" would send
           # whoever reads this red badge to check the URL, when the thing that
           # moved is the parser. This stop_reason means the site served a page
           # that links to products and we turned it into nothing.
@@ -147,7 +146,7 @@ jobs:
               want(f"{column} coverage", share >= 95.0,
                    f"{share:.0f}% ({filled}/{len(rows)})")
 
-          # Values, not just coverage (§10). A column can be 100% populated
+          # Values, not just coverage. A column can be 100% populated
           # and entirely wrong.
           want("every currency is JPY",
                {r.get("currency") for r in rows if r.get("price") is not None} == {"JPY"},
@@ -164,7 +163,7 @@ jobs:
                all(r["sku"] and f"/g/g{r['sku']}/" in r["url"] for r in rows),
                "a row points at a product other than the one it describes")
 
-          # §18: page + position must be unique across a multi-page run, or
+          # page + position must be unique across a multi-page run, or
           # `position` is worthless — it restarts at 1 on every page.
           pairs = [(r.get("page"), r.get("position")) for r in rows]
           want("page+position unique", len(set(pairs)) == len(pairs),
@@ -377,7 +376,7 @@ jobs:
           if-no-files-found: ignore
 
   scraping_browser:
-    name: Scraping Browser API (skips without a secret)
+    name: Scraping Browser API (needs the KOSE_CDP_ENDPOINT secret)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -385,17 +384,15 @@ jobs:
       # here and read in each step's `if`.
       HAVE_CDP: ${{ secrets.KOSE_CDP_ENDPOINT != '' }}
     steps:
-      - name: Explain the skip
+      - name: Require the secret
         if: env.HAVE_CDP != 'true'
         run: |
-          echo "::notice::Skipping the Scraping Browser run: no KOSE_CDP_ENDPOINT secret is set."
-          echo "This path is OPTIONAL on this site — the listing job above runs"
-          echo "the same scrape from a bare runner with no credentials at all,"
-          echo "which is the README's central claim. To exercise the paid path:"
+          echo "::error::The KOSE_CDP_ENDPOINT secret is not set, so the Scraping Browser path was NOT tested."
+          echo "The listing jobs above test the site itself with no credentials."
+          echo "This job tests the paid path and fails rather than passing on a"
+          echo "skip. To make it run:"
           echo "    gh secret set KOSE_CDP_ENDPOINT --repo 2scraper/kose-scraper"
-          echo "Note a Scraping Browser profile's credentials live about a day,"
-          echo "so a stored secret goes stale between scheduled runs — prefer"
-          echo "dispatching this workflow manually when you want to test it."
+          exit 1
 
       - uses: actions/checkout@v4
         if: env.HAVE_CDP == 'true'
@@ -415,7 +412,7 @@ jobs:
         env:
           # Through the ENVIRONMENT, never a command line: env_config.py reads
           # exactly this variable, and a credential in argv is readable by
-          # anything that can run `ps` (CLAUDE.md §3, §11).
+          # anything that can run `ps`.
           KOSE_CDP_ENDPOINT: ${{ secrets.KOSE_CDP_ENDPOINT }}
         run: |
           set +e
@@ -432,11 +429,11 @@ jobs:
           import json, os, sys
           code = int(os.environ["EXIT_CODE"])
           if code == 5:
-              print("::warning::Remote API error (exit 5). A Scraping Browser "
-                    "profile allows ONE live connection and its credentials "
-                    "live about a day, so a stale secret or a busy pid looks "
-                    "exactly like this. Not a failure of the scraper.")
-              sys.exit(0)
+              print("::error::Exit 5: the content was never obtained over CDP. "
+                    "A Scraping Browser profile allows ONE live connection, so "
+                    "a busy pid looks like this; an expired profile answers "
+                    "401. Either way nothing was tested.")
+              sys.exit(1)
           if code != 0:
               print(f"::error::The CDP run exited {code}.")
               sys.exit(1)

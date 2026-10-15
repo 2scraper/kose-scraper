@@ -19,7 +19,7 @@ The fixtures
 ------------
 Every one is cut VERBATIM from a real capture taken 2026-09-18 and trimmed to
 the parts the parser reads. Each was verified to parse to IDENTICAL values to
-its untrimmed original before being committed (§15 step 3): the trimming
+its untrimmed original before being committed: the trimming
 script asserted field-by-field equality on every row, not merely that the row
 count matched.
 
@@ -50,7 +50,7 @@ count matched.
                          product-shaped link, which is why the parse-failure
                          threshold is two. An earlier version of this fixture
                          was written by hand with a 404 title on it, and was
-                         wrong about the one thing it existed to show (§21: a
+                         wrong about the one thing it existed to show (a
                          guard is only as good as the fixture it runs
                          against).
     HTTP404_HTML         the site's REAL 404, verbatim from
@@ -62,13 +62,13 @@ count matched.
                          `<title>maison.kose.co.jp</title>` — the site's own
                          hostname — and no vendor marker at all, which is
                          why positive-asset detection is the only thing that
-                         classifies it correctly (§18).
+                         classifies it correctly.
 
 No personal data appears in any of them. Maison KOSÉ does publish staff
 opinion pieces under real first names, and the one staff card in
 PRODUCT_HTML is there because the PARSER must ignore it — so the author's
 name and the review text are replaced with obvious placeholders while the
-markup the site generates around them is left untouched (§10).
+markup the site generates around them is left untouched.
 `check_fixtures_carry_no_session_material` guards the next capture by
 PATTERN rather than by these literals.
 """
@@ -109,10 +109,10 @@ def check(name, condition, detail=""):
     if condition:
         PASSED += 1
         if VERBOSE:
-            print("  ok   %s%s" % (name, (" — " + detail) if detail else ""))
+            print("  ok   %s%s" % (name, (" — " + str(detail)) if detail else ""))
     else:
-        FAILURES.append("%s%s" % (name, (" — " + detail) if detail else ""))
-        print("  FAIL %s%s" % (name, (" — " + detail) if detail else ""))
+        FAILURES.append("%s%s" % (name, (" — " + str(detail)) if detail else ""))
+        print("  FAIL %s%s" % (name, (" — " + str(detail)) if detail else ""))
 
 
 def equal(name, got, want):
@@ -755,9 +755,9 @@ DRIVER_IMPORTS = {
     "puppeteer_scraper": "pyppeteer",
 }
 
-# The family's flag contract (CLAUDE.md §9), plus the five it omitted for
+# The family's flag contract, plus the five it omitted for
 # months while nearly every repo shipped them. Re-derive rather than trusting
-# this comment (§13):
+# this comment:
 #
 #   grep -ohE '"--[a-z0-9-]+"' */playwright_scraper.py | sort | uniq -c | sort -rn
 CONTRACT_FLAGS = {
@@ -772,7 +772,7 @@ CONTRACT_FLAGS = {
 # `--locale` is in 16 of the 18 repos counted and is deliberately ABSENT
 # here, which is a measurement rather than an oversight: maison.kose.co.jp
 # is one market — no hreflang set, no /en/ route, JPY on every row — so the
-# flag would be a setting that changes nothing, which §3 calls out by name.
+# flag would be a setting that changes nothing, which is exactly what to avoid.
 #
 # `--sort` is absent for the same reason: the site offers no ordering control
 # on either listing route. That is the opposite of bbb-scraper, where the
@@ -788,7 +788,7 @@ FAMILY_FLAGS = CONTRACT_FLAGS
 BANNED_FLAGS = ("--antidetect", "--country-code", "--country", "--locale", "--sort")
 
 # Assembled from pieces rather than written out, so that this file can be
-# SCANNED for them too (§22): three repos in the family exempted
+# SCANNED for them too: three repos in the family exempted
 # `smoke_test.py` wholesale, which made the file most likely to acquire a
 # stray phrase the one file nobody checked.
 BANNED_WORDING = (
@@ -804,7 +804,7 @@ _TREE_BEFORE = None
 
 
 # ---------------------------------------------------------------------------
-# The parser, against real captures. Assert VALUES, not coverage (§10).
+# The parser, against real captures. Assert VALUES, not coverage.
 # ---------------------------------------------------------------------------
 
 def check_listing_parses_with_the_values_the_page_shows():
@@ -838,8 +838,8 @@ def check_the_image_is_the_product_and_not_the_badge():
 
     The first version of this parser read it and got
     `/freepage/…/badge/new.png` on every tile that had one — 100% coverage of
-    the WRONG value, which is exactly what §10 means by asserting values
-    rather than coverage. Every row here must point at `/img/goods/`.
+    the WRONG value, which is why values are asserted rather
+    than coverage. Every row here must point at `/img/goods/`.
     """
     rows = product_parser.parse_products(LISTING_HTML, LISTING_URL)
     bad = [r.sku for r in rows if r.image_url and "/badge/" in r.image_url]
@@ -852,7 +852,7 @@ def check_the_image_is_the_product_and_not_the_badge():
 
 
 def check_stock_is_an_allowlist_and_takes_both_values():
-    """§20: a column you never saw take its other value is not verified."""
+    """A column you never saw take its other value is not verified."""
     rows = product_parser.parse_products(LISTING_HTML, LISTING_URL)
     equal("in_stock across the fixture", [r.in_stock for r in rows],
           [False, False, False, True])
@@ -900,7 +900,7 @@ def check_a_tag_listing_mixes_brands_and_is_read_per_tile():
 
 
 def check_a_product_page_is_not_a_listing():
-    """The `li.` in the tile selector is the whole guard (§4).
+    """The `li.` in the tile selector is the whole guard.
 
     A product page reuses `c-product__item` on `<div>`s for staff-review
     cards. A class-only selector would emit one row per card — a product
@@ -936,7 +936,7 @@ def check_product_detail_reads_the_pages_own_jsonld():
 
 
 def check_the_structured_and_displayed_prices_agree():
-    """§4 says CHECK this on every site rather than assume it."""
+    """CHECK this on every site rather than assume it."""
     equal("they agree on the captured product",
           product_parser.detail_price_agrees(PRODUCT_HTML), True)
     broken = PRODUCT_HTML.replace("5,940円", "9,999円")
@@ -1072,7 +1072,7 @@ def check_pages_are_planned_from_the_counter():
     Against `page_flow.pages_to_plan`, which is the function the ENGINES
     call. An earlier version of this check exercised a `product_parser`
     helper that the engines had stopped using, so it passed while saying
-    nothing about what a run would do (§17's check #5 found it).
+    nothing about what a run would do (the check #5 found it).
     """
     equal("50 asked, 13 available", list(page_flow.pages_to_plan(50, 13)),
           list(range(1, 14)))
@@ -1151,7 +1151,7 @@ def check_price_parsing():
 # ---------------------------------------------------------------------------
 
 def check_no_marker_fires_on_a_page_the_site_serves():
-    """§18: count every candidate on a page you KNOW is good, first."""
+    """Count every candidate on a page you KNOW is good, first."""
     good = [("listing", LISTING_HTML), ("tags", TAGS_HTML),
             ("product", PRODUCT_HTML), ("empty", EMPTY_HTML),
             ("404", NOTFOUND_HTML)]
@@ -1161,7 +1161,7 @@ def check_no_marker_fires_on_a_page_the_site_serves():
 
 
 def check_cf_turnstile_is_not_carried_as_a_marker():
-    """§19: 2Captcha's own Scraping Browser extension injects `cf-turnstile`
+    """2Captcha's own Scraping Browser extension injects `cf-turnstile`
     into every page it loads, so it fires on GOOD pages and misses real
     ones. `challenges.cloudflare.com` is the one that works."""
     markers = [m for m, _ in product_parser.BOT_CHALLENGE_MARKERS]
@@ -1187,7 +1187,7 @@ def check_a_marker_would_still_fire_if_the_site_turned_one_on():
 
 
 def check_a_marker_survives_both_encodings():
-    """§20: an edge can entity-escape the punctuation in its own marker, so a
+    """An edge can entity-escape the punctuation in its own marker, so a
     literal matches a browser's DOM and misses a raw HTTP response."""
     escaped = ("<html><head><title>Access Denied</title>"
                "<script src=\"https&#58;&#47;&#47;challenges&#46;cloudflare&#46;com"
@@ -1225,7 +1225,7 @@ def check_chromiums_own_error_page_is_not_mistaken_for_the_site():
 
 
 def check_the_unambiguous_signal_is_checked_before_the_threshold():
-    """§17's classification-order trap: a thin but REAL page must not come
+    """the classification-order trap: a thin but REAL page must not come
     back as blocked because it happens to reference few assets."""
     thin = ('<html><head><script src="/js/sys/cart.js"></script></head><body>'
             '<ul class="c-product-content__list">'
@@ -1248,11 +1248,11 @@ def check_the_404_carries_exactly_one_product_link():
 
 
 # ---------------------------------------------------------------------------
-# Structural checks the whole family shares (§10, §17, §22).
+# Structural checks the whole family shares.
 # ---------------------------------------------------------------------------
 
 def check_shared_calls_bind_against_the_real_signature():
-    """§17's check #1, and the one that earns its keep.
+    """the check #1, and the one that earns its keep.
 
     A sibling repo shipped `classify(html, url=…)` in two of three engines
     against a callee taking `status` second, and BOTH crashed on their first
@@ -1339,7 +1339,7 @@ def check_shared_calls_bind_against_the_real_signature():
 
 
 def check_credential_scan_is_one_implementation_invoked_from_both():
-    """§17: two sources of truth, one dead and one holed.
+    """Two sources of truth, one dead and one holed.
 
     `.github/ci_checks.py` sat in three repos invoked by NOTHING, while
     tests.yml carried an inline grep doing a narrower version of the same job
@@ -1363,7 +1363,7 @@ def check_credential_scan_is_one_implementation_invoked_from_both():
 
 
 def check_ci_calls_the_shared_checks_rather_than_restating_them():
-    """§17: one implementation, invoked from both — asserted, not assumed.
+    """One implementation, invoked from both — asserted, not assumed.
 
     This repo's FIRST CI run failed on exactly this. `tests.yml` carried
     INLINE reimplementations of the `--help` and sample-output checks that
@@ -1374,7 +1374,7 @@ def check_ci_calls_the_shared_checks_rather_than_restating_them():
     nothing in the repo could see the difference.
 
     The guard triggers on the whole `.github` directory being absent, never
-    on a file inside it being missing (§22): two suites in this family run
+    on a file inside it being missing: two suites in this family run
     INSIDE the Docker image, which deliberately COPYs no `.github/`, so a
     check that reads a workflow file is correct in the repo and red in the
     image. A check that quietly starts passing once its input disappears is
@@ -1417,7 +1417,7 @@ def check_ci_calls_the_shared_checks_rather_than_restating_them():
 
 
 def check_banned_wording():
-    """§12: enforced by this test rather than by review."""
+    """Enforced by this test rather than by review."""
     for root, dirs, files in os.walk(HERE):
         dirs[:] = [d for d in dirs if d not in
                    (".git", "__pycache__", ".pytest_cache", "node_modules")]
@@ -1434,6 +1434,50 @@ def check_banned_wording():
     check("banned-wording scan ran", True)
 
 
+# The project's notes outside this repository are private: a pointer to them
+# is a dead reference for every reader. Assembled from pieces so this file
+# can be scanned too.
+PRIVATE_CITATIONS = (
+    "CLAUDE" + ".md",
+    "claude_" + "2scraper",
+    "2scraper_" + "repo_rules",
+    "play" + "book",
+    "template " + "\u00a7",
+    "\u00a7",                  # a bare section sign: a numbered private rule
+)
+
+
+def check_no_citations_of_private_notes():
+    """Shipped files state each rule in their own words.
+
+    They used to cite a private file by name and by section number — in the
+    README, in `--help` output, in docstrings and in release notes — which
+    reads as a pointer into a document no reader can open.
+    """
+    names = (".gitignore", ".dockerignore", "Dockerfile", ".env.example")
+    scanned = 0
+    for root, dirs, files in os.walk(HERE):
+        dirs[:] = [d for d in dirs
+                   if d not in (".git", "__pycache__", ".pytest_cache",
+                                "node_modules")
+                   and not os.path.exists(os.path.join(root, d, "pyvenv.cfg"))]
+        for filename in files:
+            if not (filename.endswith((".py", ".md", ".yml", ".yaml", ".txt",
+                                       ".toml", ".cfg", ".html", ".example"))
+                    or filename in names):
+                continue
+            path = os.path.join(root, filename)
+            text = open(path, encoding="utf-8", errors="replace").read()
+            scanned += 1
+            for token in PRIVATE_CITATIONS:
+                if token.lower() in text.lower():
+                    line = next(i for i, l in enumerate(text.splitlines(), 1)
+                                if token.lower() in l.lower())
+                    check("%s:%d cites private notes (%r)" % (
+                        os.path.relpath(path, HERE), line, token), False)
+    check("the private-citation scan read files", scanned > 10, str(scanned))
+
+
 def check_worker_pools_start_on_different_exits():
     engine = _import_engine("playwright_scraper")
     if engine is None:
@@ -1447,7 +1491,7 @@ def check_worker_pools_start_on_different_exits():
 
 
 def check_fingerprint_kwargs_are_ones_the_driver_accepts():
-    """§10: an unknown key in new_context(**kwargs) is a TypeError at launch,
+    """An unknown key in new_context(**kwargs) is a TypeError at launch,
     on the PAID path, at runtime."""
     engine = _import_engine("playwright_scraper")
     if engine is None:
@@ -1472,7 +1516,7 @@ def check_fingerprint_kwargs_are_ones_the_driver_accepts():
 
 
 def check_engines_do_not_evaluate_a_string_in_the_browser():
-    """§18: a site whose CSP omits `unsafe-eval` kills wait_for_function with
+    """A site whose CSP omits `unsafe-eval` kills wait_for_function with
     an EvalError and takes the run down with exit 1. Maison KOSÉ has not been
     measured for that, and the cheap habit costs nothing where it would have
     been allowed."""
@@ -1490,7 +1534,7 @@ def check_engines_do_not_evaluate_a_string_in_the_browser():
 
 
 def check_credentials_never_reach_a_log():
-    """§8: an EXCEPTION MESSAGE is a log, and the masker must be GLOBAL.
+    """An EXCEPTION MESSAGE is a log, and the masker must be GLOBAL.
 
     A Playwright connection error repeats the endpoint five times (the
     message plus a four-line call log), so a masker handling only the first
@@ -1575,7 +1619,7 @@ def check_a_run_that_finds_nothing_writes_nothing():
         code = save([], prefix, "json", allow_empty=True)
         equal("--allow-empty WRITES the empty file...", 
               json.load(open(prefix + ".json", encoding="utf-8")), [])
-        # ...and still reports exit 4. Pinned deliberately (§10: pin a known
+        # ...and still reports exit 4. Pinned deliberately (pin a known
         # behaviour rather than half-guarding it): "zero products" is true
         # whether or not the file was written, and a caller that wanted the
         # file still wants to know the result was empty.
@@ -1583,7 +1627,7 @@ def check_a_run_that_finds_nothing_writes_nothing():
 
 
 def check_concurrency_with_the_browser_stubbed():
-    """§10: a live run cannot always reach this machinery.
+    """A live run cannot always reach this machinery.
 
     Page 1 is fetched alone and decides how many pages there are, so a
     blocked page 1 means the workers never start. Driven directly instead,
@@ -1753,7 +1797,7 @@ def check_no_statement_is_unreachable():
 
 
 def check_undefined_names_in_every_module():
-    """§10: compileall proves a file PARSES, not that its names RESOLVE.
+    """Compileall proves a file PARSES, not that its names RESOLVE.
 
     A live run of a sibling repo's pyppeteer engine died with NameError on a
     line reached only while fetching, after an import had been removed — the
@@ -1792,7 +1836,7 @@ def check_undefined_names_in_every_module():
 
 
 def check_dockerfile_copies_everything_the_entrypoint_imports():
-    """§10: all three repos in this family shipped an image that died with
+    """All three repos in this family shipped an image that died with
     ModuleNotFoundError on every invocation, --help included, because
     proxy_pool.py was missing from the COPY list. CI never built the image;
     this check needs no Docker."""
@@ -1840,7 +1884,7 @@ def check_env_example_documents_exactly_what_the_loader_reads():
 
 
 def check_a_copied_env_example_reads_as_UNSET():
-    """§17: `cp .env.example .env` followed by a run must not connect.
+    """`cp .env.example .env` followed by a run must not connect.
 
     The placeholder check was a literal set in a sibling repo, and the two
     credentialled URLs are documented the way the vendor documents them —
@@ -1854,14 +1898,22 @@ def check_a_copied_env_example_reads_as_UNSET():
         check(".env.example exists", False)
         return
     text = open(example, encoding="utf-8").read()
-    values = dict(re.findall(r"^([A-Z][A-Z0-9_]+)=(.*)$", text, re.M))
+    # KOSE_URL is shipped COMMENTED OUT: a copied .env that set it made
+    # every run without --url fetch that address, and the --tags/--category
+    # builders then had to work around a URL nobody typed. It is still
+    # documented, so it is still read from the commented line here.
+    check("KOSE_URL is shipped commented out",
+          re.search(r"^#\s*KOSE_URL=", text, re.M) is not None
+          and re.search(r"^KOSE_URL=", text, re.M) is None)
+    values = dict(re.findall(r"^(?:#\s*(?=KOSE_URL=))?([A-Z][A-Z0-9_]+)=(.*)$",
+                             text, re.M))
     check("the example actually sets every variable",
           set(values) == set(env_config.ENV_KEYS),
           "example has %s, loader reads %s"
           % (sorted(values), sorted(env_config.ENV_KEYS)))
     # Every CREDENTIAL must read as unset. The default TARGET must not: it is
     # a real, usable URL, and blanking it would remove the one setting this
-    # file exists to make convenient (§17's check #3 says exactly this — the
+    # file exists to make convenient (the check #3 says exactly this — the
     # credentials unset, the non-credential default still usable).
     CREDENTIALS = {"TWOCAPTCHA_KEY", "KOSE_CDP_ENDPOINT", "KOSE_PROXY"}
     before = dict(os.environ)
@@ -1920,7 +1972,7 @@ def check_engines_import_their_driver_at_module_level():
 
 
 def check_engine_flag_sets():
-    """§17's check #2: against the contract AND against each other, both ways.
+    """the check #2: against the contract AND against each other, both ways.
 
     A missing flag fails; so does closing a difference the README documents.
     """
@@ -1937,7 +1989,7 @@ def check_engine_flag_sets():
     # and could not launch it on the development machine, so it needs a way
     # to point at another one. Its twins have no equivalent because they do
     # not ship a browser. Listed here so that closing the difference — or
-    # growing a second one — fails the build (§17).
+    # growing a second one — fails the build.
     DOCUMENTED_DIFFERENCES = {"puppeteer_scraper": {"--chromium-path"}}
     names = sorted(sets)
     for i in range(len(names) - 1):
@@ -1953,7 +2005,7 @@ def check_engine_flag_sets():
 def check_banned_and_removed_flags():
     """Scoped to the ENGINES.
 
-    `--country` is absent here — the flag CLAUDE.md §10 bans outright,
+    `--country` is absent here — the flag this project bans outright on a scraper,
     because it could disagree with the URL. `--locale` is absent too:
     maison.kose.co.jp is one market (see EXTRA_FLAGS above).
 
@@ -1972,7 +2024,7 @@ def check_banned_and_removed_flags():
                   '"%s"' % flag not in source)
         check("%s does not define the banned --country" % module,
               '"--country"' not in source,
-              "§10 bans it: it could disagree with the URL")
+              "banned: it could disagree with the URL")
         check("%s refuses --tags alongside --url" % module,
               "--url already names what to fetch" in source,
               "two ways to say what to fetch must not be merged in silence")
@@ -2045,7 +2097,7 @@ def check_sample_output_matches_the_schema():
 
 
 def check_no_test_mutates_the_working_tree():
-    """§10: one suite used its own file as a fake chromedriver and chmod'd it
+    """One suite used its own file as a fake chromedriver and chmod'd it
     to 755, leaving a mode change in git status.
 
     Compares the tree against how it looked when the suite STARTED, not
@@ -2063,7 +2115,7 @@ def check_no_test_mutates_the_working_tree():
 
 
 def check_captcha_capability_claims_match_the_code():
-    """§19: the most expensive bug this family can ship is a SENTENCE.
+    """The most expensive bug this family can ship is a SENTENCE.
 
     It fails in both directions and this family has shipped both:
 
@@ -2104,7 +2156,7 @@ def check_captcha_capability_claims_match_the_code():
     # rots the moment the site switches a bot manager on.
     #
     # So the claim has to be PAIRED with the thing that would retest it — the
-    # daily canary — rather than left as a sentence nobody re-measures (§13).
+    # daily canary — rather than left as a sentence nobody re-measures.
     claims_no_key = ("no, and it would be dishonest" in low
                      or "do i need a 2captcha account" in low)
     if claims_no_key:
@@ -2114,7 +2166,7 @@ def check_captcha_capability_claims_match_the_code():
               "daily canary is what turns it back into a measurement")
         check("...and dates the measurement it rests on",
               re.search(r"20\d\d-\d\d-\d\d", readme) is not None,
-              "§13: a number describing a living thing needs its moment")
+              "a number describing a living thing needs its moment")
 
     # And in the other direction: if the README names a task type, the solver
     # had better build it. A capability claim citing no task type is a guess
@@ -2141,7 +2193,7 @@ def check_captcha_capability_claims_match_the_code():
 
 
 def check_policy_constants_have_a_consumer():
-    """§17: a policy constant nothing reads is the same defect as dead code.
+    """A policy constant nothing reads is the same defect as dead code.
 
     `RETRY_ON_BLOCKED` carried a paragraph of measured justification in a
     sibling repo and NO engine consulted it, so setting it False changed
@@ -2196,7 +2248,7 @@ def check_pagination_addressability_is_asked_per_url():
     check("pagination: a category listing is addressable",
           page_flow.pagination_is_addressable(LISTING_URL))
     check("pagination: a tag listing is addressable too — both routes were "
-          "CHECKED against the site's own rel=next before being trusted (§7)",
+          "CHECKED against the site's own rel=next before being trusted",
           page_flow.pagination_is_addressable(TAGS_URL))
     check("pagination: a PRODUCT page is not — it is one page",
           not page_flow.pagination_is_addressable(PRODUCT_URL))
@@ -2216,10 +2268,10 @@ def check_page_and_position_are_unique_across_pages():
 
 
 def check_a_broken_parser_is_not_reported_as_an_empty_category():
-    """§20: a served page that links to N products and parses to zero is OUR
+    """A served page that links to N products and parses to zero is OUR
     bug, and saying "0 products" sends the reader to check the URL instead.
 
-    §20 also says to check the signal CAN fire before adding it. Here it
+    It is also worth checking the signal CAN fire before adding it. Here it
     genuinely can, and the margin is measured: rows come from
     `li.c-product__item` tiles while `product_link_count` counts `/g/g…/`
     hrefs, and a real grid page carries 48-55 of the latter against 24 of the
@@ -2259,7 +2311,7 @@ def check_a_broken_parser_is_not_reported_as_an_empty_category():
 
 
 def check_parser_found_nothing_is_not_a_complete_run():
-    """The stop_reason must not read as success (§8: blocked != empty)."""
+    """The stop_reason must not read as success (blocked != empty)."""
     from output_writer import COMPLETE_STOP_REASONS, run_meta
     check("parse-failure: 'parser_found_nothing' is NOT a complete stop reason",
           "parser_found_nothing" not in COMPLETE_STOP_REASONS,
@@ -2320,7 +2372,7 @@ def check_sidecar_shape():
 def check_row_schema():
     from output_writer import Product, ROW_CLASS_BY_MODE, UNIQUE_BY_SKU_MODES
     names = [f.name for f in fields(Product)]
-    equal("the family prefix is byte-identical and in order (§9)",
+    equal("the family prefix is byte-identical and in order",
           names[:5], ["source", "scraped_at", "url", "sku", "title"])
 
     # The commerce columns this site DOES have. Maison KOSÉ is a shop, so the
@@ -2330,7 +2382,7 @@ def check_row_schema():
         check("the commerce column %r is present" % present, present in names)
 
     # And the ones measured ABSENT, each with its count in output_writer's
-    # docstring. §9 says removing a column needs the measurement written
+    # docstring. Removing a column needs the measurement written
     # down; this pins that they stay removed until someone re-measures.
     for gone in ("original_price", "discount_pct", "lowest_price_30d",
                  "rating", "review_count", "ean", "gtin", "engraved"):
@@ -2338,7 +2390,7 @@ def check_row_schema():
               gone not in names,
               "if this is back, output_writer's measurement should be too")
 
-    # Site-specific columns go at the END of the row (§9), after the family's.
+    # Site-specific columns go at the END of the row, after the family's.
     equal("site-specific columns come last",
           names[-9:], ["mode", "tax_rate", "price_is_store_price", "badges",
                        "subcategory", "volume", "colour_count",
@@ -2353,7 +2405,7 @@ def check_row_schema():
 
 
 def check_fixtures_carry_no_session_material():
-    """§10: a real page dump carries the session that fetched it.
+    """A real page dump carries the session that fetched it.
 
     A sibling repo committed three `sessionId` values, their CSRF tokens and
     a real customer's display name, profile permalink and review text. None
@@ -2363,7 +2415,7 @@ def check_fixtures_carry_no_session_material():
     Maison KOSÉ is the easy case: it publishes products, not people, and no
     capture here carries a name, a review or a login. So this guards the
     SHAPE rather than any literal, which is the half that keeps working when
-    the next capture is taken (§10: guard with PATTERNS, not the old
+    the next capture is taken (guard with PATTERNS, not the old
     values).
     """
     fixtures = {
@@ -2463,10 +2515,10 @@ def check_the_credential_scan_skips_a_virtualenv_whatever_it_is_called():
     environment called `.v`: pip's vendored `packaging/_elffile.py` carries a
     32-hex string, so the credential scan failed on a perfectly clean clone.
     A name-based skip list covers the names its author happened to think of
-    and fails for everyone else — CLAUDE.md §21's "a check that fails on its
+    and fails for everyone else — the "a check that fails on its
     own repository is a check nobody can read", one step out.
 
-    The control matters as much as the check (§22): the fixture below is
+    The control matters as much as the check: the fixture below is
     built so that WITHOUT the fix it really would fail, which is asserted
     rather than assumed.
     """
@@ -2507,6 +2559,52 @@ def check_the_credential_scan_skips_a_virtualenv_whatever_it_is_called():
             ci_checks.REPO = before
 
 
+def check_the_credential_scan_reads_a_clone_under_any_parent():
+    """The skip list is applied to the path RELATIVE to the repository.
+
+    It used to test the absolute path, so a clone that merely lived under a
+    directory named `build` or `dist` — both in the skip list — scanned no
+    files at all and printed "0 files scanned, nothing credential-shaped".
+    A scan that reads nothing must fail, not pass; and a renamed `.env`
+    backup, which is where a live key actually sits, must be read.
+    """
+    sys.path.insert(0, os.path.join(HERE, ".github"))
+    try:
+        import ci_checks
+    except ImportError as e:
+        skip("ci_checks", str(e))
+        return
+    import pathlib
+    key = "f0e1d2c3" * 4     # assembled, so this file does not carry the shape
+    before = ci_checks.REPO
+    try:
+        for parent in ("build", "dist", "plain"):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = os.path.join(tmp, parent, "kose-scraper")
+                os.makedirs(root)
+                open(os.path.join(root, "planted.py"), "w").write(
+                    "K = '%s'\n" % key)
+                ci_checks.REPO = pathlib.Path(root)
+                found = ci_checks.secret_check()
+                check("a key planted in a clone under %s/ is caught" % parent,
+                      any("planted.py" in f for f in found), str(found))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "kose-scraper")
+            os.makedirs(root)
+            open(os.path.join(root, ".env.bak"), "w").write(
+                "TWOCAPTCHA_KEY=%s\n" % key)
+            ci_checks.REPO = pathlib.Path(root)
+            found = ci_checks.secret_check()
+            check("a key in an untracked .env.bak is caught",
+                  any(".env.bak" in f for f in found), str(found))
+        with tempfile.TemporaryDirectory() as tmp:
+            ci_checks.REPO = pathlib.Path(tmp)
+            check("a scan that read no files fails instead of passing",
+                  bool(ci_checks.secret_check()))
+    finally:
+        ci_checks.REPO = before
+
+
 def check_a_404_is_terminal_and_not_a_retry():
     """A discarded HTTP status turns a 404 into a retryable nothing.
 
@@ -2533,7 +2631,7 @@ def check_a_404_is_terminal_and_not_a_retry():
     equal("a served-but-empty page is still EMPTY, not not_found",
           page_flow.classify(EMPTY_HTML, 200), "empty")
 
-    # §20: check the signal CAN fire before adding it. It can, on a URL this
+    # Check the signal CAN fire before adding it. It can, on a URL this
     # scraper ACCEPTS: the tag route with no `tags=` parameter is a supported
     # address and answers HTTP 404 (measured 2026-09-18). A user who pastes
     # the bare facet URL lands exactly here, so the branch is reachable
@@ -2590,7 +2688,7 @@ def check_the_engines_really_thread_a_status():
         # grepping for the variable name anywhere in the file. The first
         # version of this check did the latter and passed for the wrong
         # reason: reverting the fix left `http_status` declared and unused,
-        # and the check went on saying green (§22 — verify that your control
+        # and the check went on saying green (verify that your control
         # actually failed).
         tree = ast.parse(source)
         calls = []
@@ -2726,7 +2824,7 @@ class _StubDriver:
     version of this stub spoke only Playwright's (`goto`, `content`), so the
     Selenium control failed with `'_StubPage' object has no attribute 'get'`
     — red both with the fix and without it, which is a broken check wearing
-    a working control's clothes (§22: check WHICH check caught the fault).
+    a working control's clothes (check WHICH check caught the fault).
     """
     url = LISTING_URL
     current_url = LISTING_URL
@@ -2773,6 +2871,13 @@ class _StubDriver:
 
     def setDefaultNavigationTimeout(self, ms):
         pass
+
+    # After a solve: Playwright and pyppeteer reload, Selenium refreshes.
+    def reload(self, *a, **k):
+        return _StubResponse()
+
+    def refresh(self):
+        return None
 
 
 class _StubResponse:
@@ -2855,17 +2960,60 @@ def check_retries_zero_is_a_usage_error():
               "a plain type=int lets 0 through and the loop then runs never")
 
 
+def check_counts_and_pauses_refuse_negative_values():
+    """--pages/--concurrency must be >= 1; pauses and block retries >= 0.
+
+    A plain `type=int` let `--pages 0` through to a run that fetched nothing
+    and reported an empty catalogue, and a negative `--delay` reached
+    `time.sleep` after page 1 had been fetched and crashed the run there.
+    """
+    for good, fn, want in (("2", page_flow.at_least_one, 2),
+                           ("0", page_flow.non_negative_int, 0),
+                           ("0", page_flow.non_negative_seconds, 0.0),
+                           ("1.5", page_flow.non_negative_seconds, 1.5)):
+        equal("%s(%r) is accepted" % (fn.__name__, good), fn(good), want)
+    for bad, fn in (("0", page_flow.at_least_one), ("-1", page_flow.at_least_one),
+                    ("-1", page_flow.non_negative_int),
+                    ("-0.5", page_flow.non_negative_seconds),
+                    ("nan", page_flow.non_negative_seconds)):
+        raised = False
+        try:
+            fn(bad)
+        except argparse.ArgumentTypeError:
+            raised = True
+        check("%s(%r) is refused as a usage error" % (fn.__name__, bad), raised)
+
+    wanted = {
+        "--pages": "page_flow.at_least_one",
+        "--concurrency": "page_flow.at_least_one",
+        "--delay": "page_flow.non_negative_seconds",
+        "--retry-delay": "page_flow.non_negative_seconds",
+        "--proxy-block-retries": "page_flow.non_negative_int",
+    }
+    for module in ENGINES + ("http_scraper",):
+        src = open(os.path.join(HERE, module + ".py"), encoding="utf-8").read()
+        for flag, typ in wanted.items():
+            if '"%s"' % flag not in src:
+                continue
+            check("%s: %s goes through %s" % (module, flag, typ),
+                  '"%s", type=%s' % (flag, typ) in src,
+                  "a plain type=int/float lets a negative through")
+    src = open(os.path.join(HERE, "scraper_api_client.py"), encoding="utf-8").read()
+    check("scraper_api_client: --retry-delay refuses a negative",
+          '"--retry-delay", type=page_flow.non_negative_int' in src)
+
+
 def check_a_blocked_page_without_a_proxy_does_not_crash():
     """Selenium and pyppeteer raised AttributeError on a blocked page.
 
     `mask(pool.current)` with no `--proxy` is `None.current`. Without a pool
     `BLOCK_RETRIES_WITHOUT_POOL` is 1, so the branch runs on the FIRST block
     — and the run exited 1, a CRASH, for a page that was merely blocked.
-    That destroys the blocked/empty/partial distinction §8 calls an
-    invariant, and the primary engine had the guard all along: it is the
-    "all three must agree" rule (§6) broken in the two quiet engines.
+    That destroys the blocked/empty/partial distinction the exit codes
+    exist for, and the primary engine had the guard all along: it is the
+    "all three must agree" rule broken in the two quiet engines.
 
-    Asserted as BEHAVIOUR rather than by reading the source (§20): the first
+    Asserted as BEHAVIOUR rather than by reading the source: the first
     version of this check walked the AST for an unguarded `pool.` attribute
     and reported every engine broken, including the one that was correct.
     This drives the real loop with no pool and a forced block, and asks only
@@ -2910,13 +3058,142 @@ def check_a_blocked_page_without_a_proxy_does_not_crash():
 
 
 
+# The exception each engine's load loop treats as a navigation timeout.
+_LOAD_TIMEOUT_TYPE = {
+    "playwright_scraper": "PWTimeout",
+    "selenium_scraper": "TimeoutException",
+    "puppeteer_scraper": None,      # catches Exception: pyppeteer raises many
+}
+
+
+def check_a_page_that_never_loads_without_a_proxy_does_not_crash():
+    """pyppeteer raised AttributeError when a page failed to load, no pool.
+
+    The blocked branch had been fixed, but the LOAD-FAILURE branch still
+    called `pool.advance(...)` with no `--proxy`, where `pool` is None:
+    a page whose navigation timed out `--retries` times ended the run with a
+    traceback and exit 1 instead of a load failure (exit 5, or 6 with rows).
+    The other two engines rotate only for an unusable exit and only when a
+    pool has another exit in it.
+
+    Driven as behaviour, with a navigation that always times out and,
+    separately, one that fails with Chromium's dead-proxy error text.
+    """
+    for module in ENGINES:
+        engine = _import_engine(module)
+        if engine is None:
+            continue
+        type_name = _LOAD_TIMEOUT_TYPE[module]
+        exc_type = getattr(engine, type_name) if type_name else Exception
+        for label, text in (("a timeout", "Navigation timeout of 60000 ms"),
+                            ("a dead proxy", "net::ERR_PROXY_CONNECTION_FAILED")):
+            session = _StubSession()
+            gotos = []
+
+            def fail(*a, **k):
+                gotos.append(1)
+                raise exc_type(text)
+            session.page.goto = fail
+            session.page.get = fail
+            args = _stub_args()
+            args.retries = 2
+            raised, outcome = None, None
+            try:
+                outcome = engine._fetch_one_page(
+                    session, args, None, 1, LISTING_URL)   # pool=None
+            except Exception as e:                          # noqa: BLE001
+                raised = e
+            check("%s: %s with no --proxy does not raise" % (module, label),
+                  raised is None, "%s: %s" % (type(raised).__name__, raised)
+                  if raised else "")
+            check("%s: %s was actually attempted" % (module, label),
+                  bool(gotos), "goto was never called")
+            if outcome is not None:
+                check("%s: ...and is reported as a load failure" % (module,)
+                      + " (%s)" % label, outcome.load_failed)
+            check("%s: ...and no relaunch without a pool (%s)" % (module, label),
+                  session.relaunched == 0, str(session.relaunched))
+
+
+class _StubChallenge:
+    kind, source, sitekey, action = "recaptcha-v2", "stub", "stub-key", None
+
+
+def _drive_budget(engine, detections, solver_raises=False):
+    """Run one page with a forced challenge and no pool; return purchases.
+
+    `detections` is the sequence of answers the detector gives, one per
+    call to `handle_captcha_if_present`: None for "nothing here", True for
+    "a challenge". Nothing reaches the network: the solver is a stub.
+    """
+    answers = list(detections)
+    purchases = []
+
+    def reconcile(*a, **k):
+        hit = answers.pop(0) if answers else True
+        return _StubChallenge() if hit else None
+
+    def solve(*a, **k):
+        purchases.append(1)
+        if solver_raises:
+            raise RuntimeError("stub solver failure")
+        return "stub-token"
+
+    names = ("detect_recaptcha_v3", "detect_recaptcha_in_page",
+             "reconcile_detections", "solve_recaptcha")
+    saved = {n: getattr(engine, n) for n in names}
+    saved_pf = (page_flow.classify, page_flow.classify_with_reason)
+    try:
+        engine.detect_recaptcha_v3 = lambda *a, **k: None
+        engine.detect_recaptcha_in_page = lambda *a, **k: None
+        engine.reconcile_detections = reconcile
+        engine.solve_recaptcha = solve
+        page_flow.classify = lambda html, status=None, url="": "challenge"
+        page_flow.classify_with_reason = (
+            lambda html, status=None, url="": ("challenge", "stub"))
+        args = _stub_args()
+        args.twocaptcha_key = "stub-not-a-key"
+        engine._fetch_one_page(_StubSession(), args, None, 1, LISTING_URL)
+    finally:
+        for n, v in saved.items():
+            setattr(engine, n, v)
+        page_flow.classify, page_flow.classify_with_reason = saved_pf
+    return len(purchases)
+
+
+def check_the_solve_allowance_is_spent_only_on_a_purchase():
+    """A detection that buys nothing must not use up the page's allowance.
+
+    The allowance used to be counted per CALL to the detector. The
+    pre-classification call runs on every attempt and, on a normal page,
+    detects nothing — yet it consumed the one solve a page is allowed, so a
+    challenge first seen after classification was never offered to the
+    solver and the page came out blocked.
+
+    Both directions are pinned, because this is the paid path: a late
+    challenge gets exactly one purchase, a challenge seen on every call
+    still gets exactly one, and a purchase that FAILS still counts.
+    """
+    for module in ENGINES:
+        engine = _import_engine(module)
+        if engine is None:
+            continue
+        limit = page_flow.SOLVES_PER_PAGE
+        equal("%s: a challenge seen only after classification is solved"
+              % module, _drive_budget(engine, [None]), limit)
+        equal("%s: a challenge seen on every call is bought once per page"
+              % module, _drive_budget(engine, []), limit)
+        equal("%s: a failed purchase still counts against the allowance"
+              % module, _drive_budget(engine, [], solver_raises=True), limit)
+
+
 def check_every_paid_solve_goes_through_one_budget():
     """`handle_captcha_if_present` runs TWICE per attempt; one was uncounted.
 
     Measured on this repo with the solver stubbed and a forced challenge:
     **3 invocations against `SOLVES_PER_PAGE = 1`** before the fix, 1 after.
     The uncounted call repeats on every block-retry, so the constant read
-    like a limit and was advisory (§17, §23).
+    like a limit and was advisory.
 
     Asserted by PARSING rather than by grepping, because a grep for
     `SOLVES_PER_PAGE` matches the constant, the comment that explains it and
@@ -3098,7 +3375,7 @@ def check_the_http_engine_is_the_same_scrape():
 
     What it must NOT do is accept a flag it cannot honour: a setting that
     looks configurable and does nothing is worse than one that is absent
-    (§3). Those are refused as usage errors.
+. Those are refused as usage errors.
     """
     path = os.path.join(HERE, "http_scraper.py")
     if not os.path.exists(path):
@@ -3146,7 +3423,7 @@ def check_the_http_engine_is_the_same_scrape():
 def check_a_failed_run_still_leaves_something_machine_readable():
     """`<out>.last_attempt.json`, beside a sidecar that may describe good data.
 
-    §9 is right that a FAILED run must write no `<out>.meta.json`: `save`
+    It is right that a FAILED run must write no `<out>.meta.json`: `save`
     leaves the previous good output in place, and a "failed" sidecar beside
     it would contradict it. The gap that left — a failed run told a caller
     nothing but an exit code — was raised by a third-party audit on
@@ -3187,7 +3464,7 @@ def check_pyproject_matches_the_files_on_disk():
     """`pyproject.toml` and `requirements*.txt` are kept in sync BY HAND.
 
     CI installs only `requirements.txt`, so a drift between the two goes
-    unnoticed there (§6) — which is why it is checked here instead. Raised
+    unnoticed there — which is why it is checked here instead. Raised
     by a third-party audit on 2026-10-13 as "one authoritative definition,
     or a check that they have not diverged"; this is the second, because the
     two files are read by different tools and neither can be generated from
@@ -3314,12 +3591,12 @@ def check_no_marker_fires_on_a_page_fetched_over_CDP():
 
     This repo carried a bare `recaptcha` marker until that page existed, and
     it FIRED on it. Nothing broke, because tiles are checked before markers
-    (§17) — but a page with no tiles, an exhausted tag facet say, would have
+ — but a page with no tiles, an exhausted tag facet say, would have
     been reported as a challenge over CDP: exit 3 for a correct answer.
 
     The claim "no marker fires on a good page" had been true of every
     capture this repo had, and every one of them was fetched LOCALLY. That
-    is §21's guard passing for the wrong reason, and §24 says to commit a
+    is the guard passing for the wrong reason, and the rule is to commit a
     CDP-fetched fixture for exactly this.
     """
     check("the fixture really carries the extension's injections",
@@ -3353,7 +3630,7 @@ def check_no_marker_fires_on_a_page_fetched_over_CDP():
     equal("a REAL reCAPTCHA loader is still detected",
           page_flow.classify(real, 200), "challenge")
 
-    # §24: the marker set must score zero WITHOUT any extension strip, or
+    # The marker set must score zero WITHOUT any extension strip, or
     # the strip is load-bearing and the next marker added inherits the hole.
     check("this repo carries no chrome-extension strip to lean on",
           "chrome-extension" not in open(
@@ -3393,7 +3670,7 @@ def check_a_url_from_the_environment_does_not_block_the_builders():
         # captures the same filled-in value and nothing changes. Compared
         # against the CALL, not the string: the first version of this check
         # matched the word inside its own explanatory comment and reported
-        # every engine broken (§22 — a check that matches a comment rather
+        # every engine broken (a check that matches a comment rather
         # than the code).
         check("%s: captured before env_config.apply(args) runs" % module,
               src.index("typed_url = args.url")

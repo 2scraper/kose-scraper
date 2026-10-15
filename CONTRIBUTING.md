@@ -96,9 +96,11 @@ Then the rest of the presentation, in the order that matters:
 1. `python3 smoke_test.py` green, and the canary dispatched at least once.
    **Both of this repo's real canary jobs run with NO secrets** and are
    expected to be green — that is not a convenience, it is what keeps the
-   README's central claim honest. Only the third job, which exercises the
-   Scraping Browser path, skips without a secret; dispatch it by hand once
-   and confirm the SKIP branch runs, not just the happy one.
+   README's central claim honest. Only the last job, which exercises the
+   Scraping Browser path, needs a secret (`KOSE_CDP_ENDPOINT`); without it
+   that job FAILS with an error naming the secret rather than passing on a
+   skip, because a green check that tested nothing is indistinguishable
+   from one that tested something.
    Note `workflow_dispatch` requires the workflow to exist on the DEFAULT
    branch — from a feature branch `gh workflow run` answers
    `HTTP 404: workflow canary.yml not found on the default branch`, which
@@ -143,7 +145,7 @@ that breaks one will fail rather than silently regress:
   (種類を選ぶ, カートに入れる, 商品を購入する, 予約受付中) and two mean not
   (現在購入頂けません, 予約受付終了). A wording Kosé adds tomorrow must read as
   unknown rather than as a quiet "in stock". The column is verified in BOTH
-  directions — 19 of 171 tiles were unavailable — which §20 says is otherwise
+  directions — 19 of 171 tiles were unavailable — which is otherwise
   not verified at all.
 
 - **`tax_rate` is a column because Japan has two rates.** 10% standard, 8%

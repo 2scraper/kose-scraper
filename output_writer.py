@@ -26,7 +26,7 @@ whether a category or a tag facet led to it.
 
 Columns this site does NOT have, and the measurement behind each
 ----------------------------------------------------------------
-CLAUDE.md §9: a column null on every row of every run should not exist, and
+A column null on every row of every run should not exist, and
 removing one needs the measurement written down so someone can put it back
 with a better one. Counted 2026-09-18 over 171 tiles in 8 listing captures
 and 4 product captures:
@@ -35,7 +35,7 @@ and 4 product captures:
   is the load-bearing one.** 360 price nodes were surveyed and not one
   carries a struck-through, was-, or reference price: every node is a single
   amount in `1,234円（税込）` shape. So there is no discount chain, and
-  CLAUDE.md §4 is explicit that the tile-price overlay must be DELETED rather
+  the rule is explicit that the tile-price overlay must be DELETED rather
   than ported when that is true — there is no second view to reconcile
   against, and an overlay would be dead code that looks load-bearing. The EU
   Omnibus 30-day-low column that mediamarkt-scraper needs has no counterpart
@@ -55,12 +55,12 @@ and 4 product captures:
   no ordering control on either listing route, so there is no ordering to
   record and nothing a run could have asked for. That is the opposite of
   bbb-scraper, where the ordering decides WHICH rows are in the file and
-  therefore had to be a column (CLAUDE.md §21).
+  therefore had to be a column.
 
 What IS kept, byte-identical and in order, is the family prefix — `source`,
 `scraped_at`, `url`, `sku`, `title` — so one column name works across the
 family and a consumer reading several of these repos reads the same first
-five columns in the same order (§9).
+five columns in the same order.
 """
 
 import contextlib
@@ -98,7 +98,7 @@ def utc_now() -> str:
 class Product:
     """One Maison KOSÉ product, from a listing tile or from a product page."""
 
-    # ---- the family prefix, byte-identical and in order (§9) ------------
+    # ---- the family prefix, byte-identical and in order ------------
     source: str = SOURCE_DEFAULT
     scraped_at: str = field(default_factory=utc_now)
     # The absolute product URL. A tile publishes it ROOT-RELATIVE
@@ -128,16 +128,16 @@ class Product:
     # Tax-INCLUSIVE, which is what this site prints and what its JSON-LD
     # publishes; `tax_rate` below says which rate is included. Structured and
     # displayed prices were checked against each other rather than assumed
-    # (§4) and agree on 4 of 4 product captures.
+    # and agree on 4 of 4 product captures.
     price: Optional[float] = None
     # "JPY" where a price was read, None where none was. Never defaulted: a
-    # row with no price has no currency either (§8).
+    # row with no price has no currency either.
     currency: Optional[str] = None
     # From the site's own call-to-action text on a listing and from
     # `offers.availability` on a product page, both as ALLOWLISTS so an
-    # unanticipated value reads as unknown rather than as a quiet True (§20).
+    # unanticipated value reads as unknown rather than as a quiet True.
     #
-    # Verified in BOTH directions, which §20 says is otherwise not verified at
+    # Verified in BOTH directions, which is otherwise not verified at
     # all: 19 of 171 measured tiles say 現在購入頂けません or 予約受付終了, and
     # `gJQBA`'s JSON-LD independently says `OutOfStock` where its tile does.
     in_stock: Optional[bool] = None
@@ -149,7 +149,7 @@ class Product:
     category: Optional[str] = None
 
     # ---- provenance and ordering ---------------------------------------
-    # WHICH node the price was read from, per §8. There is no discount chain
+    # WHICH node the price was read from. There is no discount chain
     # on this site and therefore no DOM overlay to reconcile against, so this
     # records the source rather than a confirmation:
     #
@@ -160,15 +160,15 @@ class Product:
     price_source: Optional[str] = None
     # `page` is 1-based over the run; `position` is the item's rank WITHIN its
     # page and restarts at 1 on each one. Neither is unique alone — the suite
-    # asserts the PAIR is unique across a multi-page run (§18).
+    # asserts the PAIR is unique across a multi-page run.
     page: Optional[int] = None
     position: Optional[int] = None
     # Which mode produced the row. The repo no longer implies it and
     # `diff_runs.py` refuses to compare two runs whose modes it cannot line
-    # up (§9).
+    # up.
     mode: Optional[str] = None
 
-    # ---- site-specific, at the end (§9) ---------------------------------
+    # ---- site-specific, at the end ---------------------------------
     # The consumption-tax rate the price INCLUDES, as a percentage. Japan runs
     # two: 10% standard, and 8% reduced on ingestibles — a beauty supplement
     # sits at 8% while the cream beside it is at 10%. The site states the
@@ -188,7 +188,7 @@ class Product:
     badges: Optional[str] = None
     # Everything below is published on a PRODUCT page and not on a tile, and
     # is None on a listing row. They are the reason to open a detail page at
-    # all, which is what keeps them off §9's "null on every row" list: in
+    # all, which is what keeps them off the "null on every row" list: in
     # `--mode product` they are populated.
     subcategory: Optional[str] = None
     # `容量 40g` — the pack size, from the detail page's variation line.
@@ -331,7 +331,7 @@ def _atomic(path: str, newline: Optional[str] = None):
         # hackernews-scraper, which fixed this first — the first version
         # written here used a flat `0o644 & ~umask`, which quietly narrows
         # 0664 to 0644 under umask 002 and clobbers a deliberately tightened
-        # file (§16: lift the sibling's fix, do not invent a second one).
+        # file (lift the sibling's fix, do not invent a second one).
         try:
             mode = os.stat(path).st_mode & 0o777
         except OSError:
@@ -369,9 +369,8 @@ def _csv_escape(v: Any):
     """Neutralise a formula-shaped cell. Returns (value, was_escaped).
 
     Only STRINGS are touched. Escaping a number would turn `-5` into text
-    and break every sum a consumer writes over the column, and this schema
-    has negative numbers that matter: `savings_amount` and `discount_pct`
-    are what anyone monitoring this site is actually summing.
+    and break every sum a consumer writes over the column — `price` and
+    `rating` are what anyone monitoring this site is actually summing.
 
     CSV only, on purpose. The JSON output keeps the site's bytes exactly as
     served, so the two files deliberately differ, and `csv_cells_escaped`
@@ -529,7 +528,7 @@ def write_last_attempt(out_prefix: str, meta: dict) -> str:
     `finish_run` deliberately writes no `<out>.meta.json` for a failed run:
     `save` leaves the previous good output in place, and a "failed" sidecar
     beside good data would contradict it and make `diff_runs.py` refuse a
-    comparison of data that is in fact fine (§9).
+    comparison of data that is in fact fine.
 
     The cost of that, until this existed, was that a failed run left the
     caller NOTHING machine-readable — the exit code was the whole story, so
@@ -589,8 +588,8 @@ def run_meta(status: str, stop_reason: str, pages_requested: int,
     Two warnings live here rather than in a column, and both are this site's
     own arithmetic. A category listing publishes its total page count, so a
     run can PLAN against it and "complete" means what the word ought to mean:
-    `/c/c15/` states 13 pages, and 12 × 24 + 16 = 304 products is the whole
-    category. A TAG listing publishes no counter at all, so `pages_available`
+    on 2026-09-18 `/c/c15/` stated 13 pages, and 12 × 24 + 16 = 304 products
+    was the whole category then (the count moves with the catalogue). A TAG listing publishes no counter at all, so `pages_available`
     is None there — which means UNKNOWN and never zero, because capping a tag
     run at zero pages would turn a working route into an empty file.
 
@@ -621,7 +620,7 @@ def run_meta(status: str, stop_reason: str, pages_requested: int,
     }
     if extra:
         # Merged rather than nested under a key, so a consumer reads
-        # `shop_rating` at the top level beside `products`. Run fields win a
+        # `pages_available` at the top level beside `products`. Run fields win a
         # name collision: a caller cannot accidentally overwrite `status`.
         meta.update({k: v for k, v in extra.items() if k not in meta})
     return meta
@@ -690,8 +689,8 @@ def save(rows: Sequence[Any], out_prefix: str, fmt: str,
 #
 # It is a COMPLETE run, and here it is complete in the strong sense: the site
 # imposes no cap of its own, so the planned page count IS the whole category.
-# `/c/c15/` states 13 pages and 12 × 24 + 16 = 304 products is all of Cosme
-# Decorté (measured 2026-09-18).
+# On 2026-09-18 `/c/c15/` stated 13 pages and 12 × 24 + 16 = 304 products
+# was all of Cosme Decorté; the count moves as the catalogue changes.
 #
 # Planning against it is not merely an optimisation on this site, which is
 # the part worth remembering. Walking off the end of a category returns the
@@ -708,10 +707,11 @@ def save(rows: Sequence[Any], out_prefix: str, fmt: str,
 # Note "parser_found_nothing" is deliberately ABSENT. A page Maison KOSÉ
 # served that links to products and parsed to zero rows is OUR failure, not a
 # complete answer, and a run that ends that way must not report `complete`
-# (§20). Its exit code stays EXIT_NO_PRODUCTS — the catalogue question really
-# was answered — so only the status and the stop_reason carry the distinction.
+# Its exit code is EXIT_API_ERROR (5) through finish_run's not-complete rule:
+# with zero rows nothing was obtained that a consumer could use, and
+# EXIT_NO_PRODUCTS (4) would claim an empty catalogue the page contradicts.
 #
-# It CAN fire on this site, which §20 says to check before adding the signal:
+# It CAN fire on this site, which is worth checking before adding the signal:
 # rows are built from `li.c-product__item` tiles while `product_link_count`
 # counts `/g/g…/` hrefs, and a grid page carries 28 of those against 24
 # tiles. So a tile-markup change leaves the links intact and the rows at

@@ -2,7 +2,7 @@
 page_flow.py
 ------------
 The retry / solve / blocked decision, as DATA rather than as three copies of
-an if-chain (CLAUDE.md §1).
+an if-chain.
 
 Maison KOSÉ answers a request four ways, and three of them want a different
 response:
@@ -29,13 +29,13 @@ maison.kose.co.jp:
 
     12 consecutive page fetches, no delay between them -> 12 × HTTP 200
 
-    zero captcha markers of any vendor across 13 captures (§18's count, in
+    zero captcha markers of any vendor across 13 captures (the count, in
     product_parser.BOT_CHALLENGE_MARKERS)
 
 So on this site the block path is a TRIPWIRE, not a description of anything
 observed. It is carried in full anyway, because the alternative to a tripwire
 is a run that reports an empty catalogue on the day Kosé turns something on —
-and because CLAUDE.md §19's most expensive bug in this family was a SENTENCE
+and because the most expensive bug in this family was a SENTENCE
 claiming a captcha could not be met.
 
 Nothing here claims a captcha is unsolvable on this site. There is no widget
@@ -50,13 +50,13 @@ the same 71,199 bytes, HTTP 200, with 16 real tiles on them. So "keep
 fetching until a page comes back empty" never terminates on this route, and
 `pages_to_plan` bounds a run by the site's own `N／Mページ` counter rather
 than by walking off the end. A tag listing DOES end with an empty page, so
-both routes still need the data-based stop (§7 layer 3).
+both routes still need the data-based stop.
 
 **No JavaScript crosses this boundary.** `wait_for_count` takes a callback
 each engine implements with its own `querySelectorAll`, never a string for
 the browser to evaluate: a site whose CSP omits `unsafe-eval` kills
 `wait_for_function` with an `EvalError` and takes the run down with exit 1
-(CLAUDE.md §18). maison.kose.co.jp's CSP does allow `unsafe-eval` — it is in
+. maison.kose.co.jp's CSP does allow `unsafe-eval` — it is in
 the header, checked — so this costs nothing here and keeps the habit.
 """
 
@@ -69,7 +69,7 @@ import product_parser
 
 
 # How many tiles mean "the grid has painted". Must be > 1: waiting for one
-# match can resolve on something unrelated long before a grid is there (§5).
+# match can resolve on something unrelated long before a grid is there.
 #
 # Two rather than four, and the number is measured rather than inherited. The
 # anchor below is a real product TILE, not a link, so it cannot resolve on a
@@ -126,7 +126,7 @@ def wait_for_count(count: Callable[[str], int], selector: str, minimum: int,
     Returns the last count seen, so a caller can report "13 of 24 painted"
     rather than a bare timeout. The OPERATION is named and the driver's own
     primitive is passed in, so no JavaScript dialect crosses this boundary
-    (CLAUDE.md §1): Selenium's `execute_script` wants a function body with an
+: Selenium's `execute_script` wants a function body with an
     explicit `return` while Playwright and pyppeteer want `() => expr`, and a
     shared module that spelled either would quietly acquire one driver's
     accent.
@@ -171,7 +171,7 @@ def attempts(value: str) -> int:
     the HTTP path should replace it. The same command with `--retries 1`,
     same address and same minute, returned 199,558 bytes and 24 products.
     So this flag did not merely waste a run: it produced a confident, wrong
-    verdict about the whole project. CLAUDE.md §28 records the identical
+    verdict about the whole project. the family's notes record the identical
     sequence on a sibling repo, which is why this is a usage error now
     rather than a documented quirk.
     """
@@ -205,6 +205,47 @@ def extra_attempts(value: str) -> int:
     return n
 
 
+def at_least_one(value: str) -> int:
+    """argparse type for a COUNT that must be positive: --pages, --concurrency.
+
+    `--pages 0` or `--pages -1` used to be accepted and fetched nothing, so
+    the run reported "no products" for a site it never asked.
+    """
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not an integer")
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return n
+
+
+def non_negative_int(value: str) -> int:
+    """argparse type for a count where 0 means "none": --proxy-block-retries."""
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not an integer")
+    if n < 0:
+        raise argparse.ArgumentTypeError("cannot be negative")
+    return n
+
+
+def non_negative_seconds(value: str) -> float:
+    """argparse type for a pause in seconds: --delay, --retry-delay.
+
+    A negative pause is not a shorter one: `time.sleep` raises ValueError on
+    it, mid-run, after the first page has already been fetched.
+    """
+    try:
+        n = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number")
+    if not n >= 0:          # also refuses NaN
+        raise argparse.ArgumentTypeError("cannot be negative")
+    return n
+
+
 def classify(html: Optional[str], status: Optional[int] = None,
              url: str = "") -> str:
     """The page's state, as one word.
@@ -213,7 +254,7 @@ def classify(html: Optional[str], status: Optional[int] = None,
     against every call site by the suite, because a sibling repo shipped two
     engines calling `classify(html, url=…)` against a `classify(html, status,
     url)` and both crashed on their FIRST fetch — invisible to import,
-    `--help` and `compileall` (CLAUDE.md §17).
+    `--help` and `compileall`.
     """
     return classify_with_reason(html, status, url)[0]
 
@@ -229,7 +270,7 @@ def classify_with_reason(html: Optional[str], status: Optional[int] = None,
 # A transport-level failure, which never reaches `classify` because no
 # response arrived. Chromium reports a dead proxy as a generic error rather
 # than as a timeout, and the two want OPPOSITE responses: a timeout deserves
-# another try at the same exit, a dead proxy a different one (CLAUDE.md §8).
+# another try at the same exit, a dead proxy a different one.
 _PROXY_FAILURE_RE = re.compile(
     r"ERR_PROXY_CONNECTION_FAILED|ERR_TUNNEL_CONNECTION_FAILED"
     r"|ERR_PROXY_AUTH_UNSUPPORTED|ERR_UNEXPECTED_PROXY_AUTH"
@@ -273,9 +314,9 @@ def looks_like_a_parse_failure(state: str, rows: int, link_count: int) -> bool:
 
     That combination is this repo's bug, not the site's, and it deserves to
     say so by name — "0 products" sends the reader to check the URL when the
-    thing to check is the parser (CLAUDE.md §20).
+    thing to check is the parser.
 
-    It CAN fire here, which §20 says to check before adding the signal: rows
+    It CAN fire here, which is worth checking before adding the signal: rows
     come from `li.c-product__item` tiles while the link count comes from
     `/g/g…/` hrefs, and a grid page carries 48-55 of those against 24 tiles.
     A tile-markup change therefore leaves the links untouched and the rows at
@@ -311,7 +352,7 @@ STATE_POLICY = {
     # A refusal with no challenge on it. There is nothing to solve — an edge
     # that declines is not offering a test — so the only move is a different
     # exit. `solve` is False on a state whose name says blocked, and that is
-    # the point: §8's "detected ≠ blocking ≠ paying".
+    # the point: the "detected ≠ blocking ≠ paying".
     "blocked":   {"retry": True,  "solve": False, "blocked": True,  "parse": False},
     # A challenge widget. This one IS a test and is the state that pays for a
     # solver. A fresh browser from a different exit clears some challenges
@@ -319,7 +360,7 @@ STATE_POLICY = {
     "challenge": {"retry": True,  "solve": True,  "blocked": True,  "parse": False},
     # Not recognisably a Maison KOSÉ page: an interstitial, a proxy's error
     # page, or Chromium's own — which carries the site's hostname in its
-    # <title> and would fool a title check (§18). A wait, not a spend.
+    # <title> and would fool a title check. A wait, not a spend.
     "unknown":   {"retry": True,  "solve": False, "blocked": False, "parse": False},
 }
 
@@ -344,7 +385,7 @@ def should_parse(state: str) -> bool:
 # engines rather than merely documented — setting it False really does stop
 # the retry loop. (A sibling repo carried this constant with a paragraph of
 # justification and no reader, which is the same defect as dead code that
-# looks load-bearing: §17.)
+# looks load-bearing.)
 RETRY_ON_BLOCKED = True
 
 # How many times to re-fetch a blocked page when there is no pool to rotate
@@ -361,7 +402,7 @@ def pagination_is_addressable(url: str) -> bool:
     """Can page N of this listing be fetched without fetching page N-1?
 
     Yes on both of this site's listing routes, and it was CHECKED rather than
-    assumed (CLAUDE.md §7): page 1's own `rel=next` agrees with what the
+    assumed: page 1's own `rel=next` agrees with what the
     convention builds, on both. That is what lets `--concurrency` above 1
     mean anything here.
 
@@ -378,7 +419,7 @@ def pages_to_plan(pages_requested: int, pages_avail: Optional[int],
 
     One implementation, in the shared module, because three engines each
     doing this arithmetic is how three engines come to disagree about where a
-    run ends (§1). Returns a range so a caller cannot get the inclusive bound
+    run ends. Returns a range so a caller cannot get the inclusive bound
     wrong in its own loop.
 
     `start_page` is honoured rather than normalised away: a run pointed at
@@ -409,6 +450,6 @@ def concurrency_limit(cdp_endpoint: Optional[str]) -> Optional[int]:
 
     The Scraping Browser API allows ONE live connection per profile, so
     workers sharing an endpoint collide with `profile_locked`. Several `pid`s
-    and one run each is the way to parallelise that path (CLAUDE.md §7).
+    and one run each is the way to parallelise that path.
     """
     return 1 if cdp_endpoint else None

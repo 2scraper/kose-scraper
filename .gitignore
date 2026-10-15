@@ -24,6 +24,23 @@ live_results.zip
 *_debug.html
 *_debug.png
 *.html.page*
+# `--dump-html NAME --pages N` writes NAME.pageN whatever NAME ends in, and a
+# one-page dump named `dump.html` lands at the root.
+*.page[0-9]*
+/*.html
+
+# --- working directories by KIND, not by one chosen name -----------------
+live/
+out/
+output/
+run/
+runs/
+result/
+results/
+tmp/
+scratch/
+dump/
+dumps/
 
 # --- captures kept for parser work ---------------------------------------
 # The smoke suite's fixtures are committed (trimmed, inside smoke_test.py);
@@ -49,7 +66,7 @@ build/
 
 # --- environments --------------------------------------------------------
 # `.venv*` rather than `.venv/`, because the README tells you to make ONE
-# VENV PER ENGINE (§6: the three engines' pins are mutually unsatisfiable),
+# VENV PER ENGINE (the three engines' pins are mutually unsatisfiable),
 # so `.venv-playwright/` and `.venv-selenium/` are the normal names here and
 # the bare `.venv/` pattern misses every one of them.
 .venv*
@@ -77,7 +94,7 @@ secrets*
 # recoverable only because that repo was private at the time. On 2026-09-17
 # a sibling had an untracked `.env.bak` holding a 32-hex key in a PUBLIC
 # repository, one `git add -A` from publication. Craigslist was fixed then
-# and the fix never reached anyone else, which is §16's rule unapplied: when
-# you fix one, check the siblings.
+# and the fix never reached anyone else: when you fix one, check the
+# siblings.
 .env*
 !.env.example

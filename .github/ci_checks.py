@@ -86,14 +86,26 @@ CREDENTIAL_ALLOWED = (
 HEX32 = re.compile(r"\b[0-9a-f]{32}\b")
 # Contexts in which a 32-hex string is plainly not a key. Site-specific
 # entries belong here only once a committed fixture actually carries one —
-# CLAUDE.md §16: a family-wide entry copied without checking is how dead
+# A family-wide entry copied without checking is how dead
 # code spreads. Kept as a CONTEXT allowlist rather than by loosening the
 # pattern: a bare 32-hex string anywhere else still fails, which is the
 # point of the check.
 HEX32_ALLOWED = ("sha", "hash", "nonce", "example", "md5", "digest",
                  "checksum")
 
-SCANNED_SUFFIXES = (".py", ".md", ".txt", ".yml", ".yaml", ".example")
+SCANNED_SUFFIXES = (".py", ".md", ".txt", ".yml", ".yaml", ".example",
+                    ".json", ".csv", ".toml", ".cfg", ".ini")
+
+
+def _is_scanned(path):
+    """A file of a scanned type, or any `.env*` file whatever its suffix.
+
+    A working copy of `.env` renamed the way people rename them — `.env.bak`,
+    `.env.local`, `.env.save` — is untracked, ignored by git, and exactly
+    where a live key sits. Reading it here is what lets a local run of this
+    check say so before anything is committed.
+    """
+    return path.suffix in SCANNED_SUFFIXES or path.name.startswith(".env")
 
 
 # Directory names that are never this repo's own source.
@@ -112,7 +124,7 @@ def _is_inside_a_virtualenv(path):
     `.v` to fail, on a 32-hex string inside pip's vendored
     `packaging/_elffile.py`.
 
-    That is CLAUDE.md §21's failure exactly — a check that fails on a
+    That is the failure exactly — a check that fails on a
     legitimate tree is a check nobody can read, and it fails for everyone but
     the person who chose the blessed name.
     """
@@ -121,14 +133,18 @@ def _is_inside_a_virtualenv(path):
             break
         if (parent / "pyvenv.cfg").exists():
             return True
-    return "site-packages" in path.parts
+    return "site-packages" in path.relative_to(REPO).parts
 
 
 def scanned_files():
     for path in sorted(REPO.rglob("*")):
-        if not path.is_file() or path.suffix not in SCANNED_SUFFIXES:
+        if not path.is_file() or not _is_scanned(path):
             continue
-        if any(part in _SKIP_NAMES for part in path.parts):
+        # RELATIVE to the repository. `path.parts` is absolute, so a clone
+        # that merely lives under a directory called `build` or `dist`
+        # skipped every file and reported "0 files scanned, nothing
+        # credential-shaped" — a clean bill for a scan that read nothing.
+        if any(part in _SKIP_NAMES for part in path.relative_to(REPO).parts):
             continue
         if _is_inside_a_virtualenv(path):
             continue
@@ -194,9 +210,9 @@ def sample_check():
         failed.append("sample_output.csv header differs from output_writer.Product")
 
     if not failed:
-        discounted = sum(1 for r in rows if r.get("original_price"))
+        priced = sum(1 for r in rows if r.get("price") is not None)
         print(f"ok       {len(rows)} rows, {len(expected)} columns, "
-              f"{discounted} discounted, schema matches")
+              f"{priced} priced, schema matches")
     return failed
 
 
@@ -220,6 +236,10 @@ def secret_check():
                 failed.append(f"{rel}:{lineno} contains {match[:6]}… — a "
                               f"32-char hex string, the shape of a 2captcha key")
 
+    if not scanned:
+        # Zero files is never a clean result: it means the scan did not run.
+        failed.append(f"no files were scanned under {REPO} — the scan read "
+                      f"nothing, so it cannot vouch for anything")
     if not failed:
         print(f"ok       {scanned} files scanned, nothing credential-shaped")
     return failed

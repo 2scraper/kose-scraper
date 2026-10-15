@@ -7,7 +7,7 @@ reached over HTTP, with no Chromium to install locally and nothing to keep
 running. The same parser reads the HTML it returns, so the rows are the rows
 the browser engines produce.
 
-Say it plainly rather than selling it (§13). **This site served an ordinary
+Say it plainly rather than selling it. **This site served an ordinary
 datacentre address on every route measured** (2026-09-18, from netcup in
 Nuremberg): a plain `curl`, a `python-requests` UA and a request with no
 User-Agent header each got the same 90,310-byte listing, and twelve pages
@@ -356,7 +356,7 @@ def parse_args():
                         "flag of the same name counts ATTEMPTS. 0 is "
                         "meaningful here and means one attempt. Each attempt "
                         "is a separate billable task, so this defaults to 1.")
-    p.add_argument("--retry-delay", type=int, default=10,
+    p.add_argument("--retry-delay", type=page_flow.non_negative_int, default=10,
                    help="Seconds between retries (default 10)")
     p.add_argument("--dump-html", default=None,
                    help="Also write the raw returned HTML to this path (always, even on success)")

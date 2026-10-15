@@ -38,7 +38,7 @@ What a browser is still for
 
 So the flags this engine cannot honour are REFUSED as usage errors rather
 than accepted and silently ignored: a setting that looks configurable and is
-not is worse than one that is absent (§3).
+not is worse than one that is absent.
 
 Usage:
 
@@ -78,7 +78,7 @@ logger = logging.getLogger("http_scraper")
 
 # An honest identity rather than a disguise. Measured above: this site serves
 # a project-named UA exactly as it serves Chrome, so there is nothing to gain
-# by claiming to be a browser — and CLAUDE.md §24 records a sibling site that
+# by claiming to be a browser — and the family's notes record a sibling site that
 # refuses precisely the CONTRADICTION between a claimed UA and the TLS
 # fingerprint underneath it. Saying what we are costs nothing here and cannot
 # backfire that way.
@@ -124,7 +124,7 @@ def _mask(text: str) -> str:
     connection error, so a proxy URL with a password in it reaches the log
     the moment anything goes wrong. A masker that handles the first
     occurrence prints the password the other times and looks like it is
-    working (§8). Host and port are kept: which exit a run used is the point
+    working. Host and port are kept: which exit a run used is the point
     of the log and is not the secret.
     """
     return _CREDENTIALS_RE.sub(r"\1***:***@", text or "")
@@ -181,7 +181,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             except (requests.RequestException, ValueError) as e:
                 # A dead or unauthenticated proxy is NOT a timeout, and the
                 # two want opposite responses: a timeout deserves another try
-                # at the same exit, a dead proxy a different one (§8).
+                # at the same exit, a dead proxy a different one.
                 kind = page_flow.classify_transport_error(e)
                 load_failed = True
                 if kind == "proxy":
@@ -240,7 +240,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     if args.dump_html:
         # On success too, not only on failure: a run can return the right
         # count with a column silently unpopulated, and then the exact bytes
-        # are the only way to tell a parsing bug from a bad response (§9).
+        # are the only way to tell a parsing bug from a bad response.
         path = (args.dump_html if args.pages == 1
                 else f"{args.dump_html}.page{page_num}")
         with open(path, "w", encoding="utf-8") as f:
@@ -370,7 +370,7 @@ def scrape(args) -> int:
             fresh = [p for p in outcome.products
                      if p.sku is not None and p.sku not in seen_keys]
             if not fresh:
-                # The data-based stop (§7 layer 3), and on this site it is
+                # The data-based stop, and on this site it is
                 # not optional: past its last page a category listing serves
                 # THAT PAGE AGAIN, byte-identical and HTTP 200, so a run that
                 # waited for an empty page would never stop.
@@ -380,7 +380,7 @@ def scrape(args) -> int:
                 break
             seen_keys.update(p.sku for p in fresh)
 
-    # Merged in PAGE order, never arrival order (§8).
+    # Merged in PAGE order, never arrival order.
     all_rows: List = []
     merged_seen: Set[str] = set()
     for oc in sorted(outcomes, key=lambda o: o.page_num):
@@ -449,29 +449,29 @@ def parse_args():
     p.add_argument("--category", default=None,
                    help="A category id to build a URL from ('c15', 'c21'), or "
                         "a label to tag output rows with.")
-    p.add_argument("--pages", type=int, default=1,
+    p.add_argument("--pages", type=page_flow.at_least_one, default=1,
                    help="How many pages to read, starting at the one --url "
                         "names (default 1).")
-    p.add_argument("--delay", type=float, default=1.0,
+    p.add_argument("--delay", type=page_flow.non_negative_seconds, default=1.0,
                    help="Seconds between pages (default 1.0). Lower than the "
                         "browser engines' default because a request here is "
                         "one GET rather than a page load; on an ungated site "
                         "politeness is the only reason for it.")
     p.add_argument("--retries", type=page_flow.attempts, default=3,
                    help=page_flow.RETRIES_HELP)
-    p.add_argument("--retry-delay", type=float, default=2.0,
+    p.add_argument("--retry-delay", type=page_flow.non_negative_seconds, default=2.0,
                    help="Seconds before the first retry, doubling thereafter.")
     p.add_argument("--format", choices=["json", "csv", "both"], default="both")
     p.add_argument("--out", default="kose_products", help="Output file prefix")
     p.add_argument("--proxy", default=None,
                    help="One proxy URL. Credentials ride in the URL and are "
-                        "masked in every log line (§8).")
+                        "masked in every log line.")
     p.add_argument("--proxy-file", default=None,
                    help="A file of proxy URLs, one per line.")
     p.add_argument("--proxy-rotate", choices=list(ROTATE_MODES),
                    default="per-run")
     p.add_argument("--proxy-shuffle", action="store_true")
-    p.add_argument("--proxy-block-retries", type=int, default=2)
+    p.add_argument("--proxy-block-retries", type=page_flow.non_negative_int, default=2)
     p.add_argument("--allow-empty", action="store_true",
                    help="Write an empty result instead of leaving the "
                         "previous good output in place.")
@@ -489,7 +489,7 @@ def parse_args():
     p.add_argument("--cdp-endpoint", default=None, help=argparse.SUPPRESS)
     p.add_argument("--solve-captcha", default=None, help=argparse.SUPPRESS)
     p.add_argument("--fingerprint", action="store_true", help=argparse.SUPPRESS)
-    p.add_argument("--concurrency", type=int, default=1, help=argparse.SUPPRESS)
+    p.add_argument("--concurrency", type=page_flow.at_least_one, default=1, help=argparse.SUPPRESS)
     args = p.parse_args()
     # What the USER typed, before the environment fills anything in.
     #

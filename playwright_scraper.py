@@ -21,7 +21,7 @@ sends a visitor with its own meta refresh.
 What is different about this site
 ---------------------------------
 * **You need none of the paid products, and the README says so plainly
-  (§13).** Measured 2026-09-18 from a datacentre address: `curl`,
+.** Measured 2026-09-18 from a datacentre address: `curl`,
   `python-requests` and a request with NO User-Agent header each got the
   same 90,310-byte listing; twelve pages back to back were twelve 200s; and
   thirteen captures carry zero captcha markers of any vendor. The captcha,
@@ -44,7 +44,7 @@ What is different about this site
 * **Wrong pagination parameters fail SILENTLY.** `&pageno=2` and `&page=2`
   on a tag listing both return page 1 with HTTP 200. `page_url()` builds the
   convention the site publishes in its own `rel=next`, which is the check
-  CLAUDE.md §7 demands before trusting a constructed URL.
+  is required before trusting a constructed URL.
 
 * **`li.` is load-bearing in the tile selector.** A product page reuses the
   class `c-product__item` on `<div>`s for staff-review cards — 15 on one
@@ -53,7 +53,7 @@ What is different about this site
 * **There is one market.** No `hreflang`, no `/en/` route, every price in
   JPY, so there is no `--locale` to pass and no ordering control on either
   listing route, so there is no `--sort`. Both flags are ABSENT rather than
-  inert (CLAUDE.md §3).
+  inert.
 
 Usage:
 
@@ -106,7 +106,7 @@ logger = logging.getLogger("playwright_scraper")
 # The browser locale the engines present. A constant rather than a flag:
 # maison.kose.co.jp is a single Japanese market — no hreflang set, no /en/
 # route, every price in JPY — so a --locale would be a setting that changes
-# nothing, which CLAUDE.md §3 calls out by name. Sending ja-JP is also the
+# nothing, which is the failure the loader's warning exists for. Sending ja-JP is also the
 # honest value: claiming en-US while reading a Japanese storefront is itself
 # a mismatch between what the browser says and what it is doing.
 BROWSER_LOCALE = "ja-JP"
@@ -199,7 +199,7 @@ CORE_FIELDS = ("title", "url", "sku", "brand", "currency")
 # tile on this site carries a `/img/goods/` thumbnail, 171 of 171 in the
 # captures and 72 of 72 on a live run. The first version of the parser read
 # the tile's FIRST `<img>` and got the "NEW" badge on every row that had one
-# — 100% coverage of the wrong value, which is exactly the failure §10 means
+# — 100% coverage of the wrong value, which is exactly the failure a value check exists for
 # by "assert VALUES on real fixtures, not coverage".
 
 # The share of rows that must carry a usable price before the run is worth
@@ -231,7 +231,7 @@ def _driver(page):
     # driver's dialect.
     #
     # There is no scroll primitive here, and its absence is measured rather
-    # than forgotten (§8: missing content is one of three things, so check
+    # than forgotten (missing content is one of three things, so check
     # which before "fixing" it). Maison KOSÉ SERVER-RENDERS its grid: a plain
     # HTTP fetch with no JavaScript at all returns every `li.c-product__item`
     # tile of the page (24 on a full one). Everything the parser
@@ -266,7 +266,7 @@ def _target_url(args) -> str:
 
     Maison KOSE server-renders its catalogue and has no JSON endpoint to
     prefer over the rendered page, which was CHECKED rather than assumed
-    (CLAUDE.md §21: ask what the front end calls before assuming a browser).
+    (ask what the front end calls before assuming a browser).
     Grepped across the captures for `/api/`, `/graphql`, `__NEXT_DATA__` and
     `__PRELOADED_STATE__`: zero hits on every listing and product page.
 
@@ -274,7 +274,7 @@ def _target_url(args) -> str:
     it names one. An earlier version normalised `/c/c15_p10/` back to
     `/c/c15/`, which meant a run pointed at page 10 quietly returned page 1's
     products and reported success. That is this codebase's most common bug
-    class (§8), and the fix is simply to fetch what was asked for: §7's "page
+    class, and the fix is simply to fetch what was asked for: the "page
     1 is fetched alone" is about the run's FIRST page deciding how far the
     rest can be addressed, not about the listing's first page.
     """
@@ -293,7 +293,7 @@ def _plan_page_urls(args, page_one_url: str,
 
     The convention is not guessed from the shape of page 1's URL: it is the
     one the site itself publishes in `<link rel="next">`, and `page_url`
-    reproduces it byte for byte on both routes. That is the check §7 demands
+    reproduces it byte for byte on both routes. That is the check required
     before trusting a constructed URL, and it matters here because getting it
     wrong is SILENT — `&pageno=2` and `&page=2` on a tag listing both return
     page 1 with HTTP 200.
@@ -574,7 +574,7 @@ def _is_endpoint(url: str) -> bool:
     it is honest; silently dropping the branch would make the engines diverge
     in shape for no reason.
 
-    CLAUDE.md §21 says to ask what the front end calls before assuming a
+    the rule is to ask what the front end calls before assuming a
     browser is needed, and that was done here first rather than last: the
     captures were grepped for `/api/`, `/graphql`, `__NEXT_DATA__` and
     `__PRELOADED_STATE__` and every one came back ZERO. This is an ASP.NET
@@ -608,7 +608,7 @@ def _snapshot(page, url: str) -> Optional[str]:
     return _content_when_settled(page)
 
 
-def handle_captcha_if_present(page, args) -> bool:
+def handle_captcha_if_present(page, args, budget) -> bool:
     """Detect and solve a challenge. True if something was solved.
 
     Runs after EVERY navigation, for ANY page — not scoped to one URL. The
@@ -624,11 +624,11 @@ def handle_captcha_if_present(page, args) -> bool:
 
     That is a statement about what this site renders TODAY, not a claim that
     a captcha here could not be solved. Nothing in this repo makes that
-    claim: CLAUDE.md §19 records what it cost the family once, and the only
+    claim: the family's notes record what it cost the family once, and the only
     sentence anyone is entitled to is which task type would be built.
 
     That is a statement about what the SITE renders, not about what can be
-    solved (§19: never write that a captcha cannot be solved — the only
+    solved (never write that a captcha cannot be solved — the only
     sentence anyone is entitled to is "this page carries no widget"). This
     path exists because a bot manager can be switched on between deploys, and
     because the family's rule is that detection stays broad:
@@ -671,6 +671,10 @@ def handle_captcha_if_present(page, args) -> bool:
                        "solved — continuing with whatever the page already "
                        "holds.")
         return False
+    # The allowance is claimed here, immediately before the only paid
+    # request, so a call that detected nothing has cost nothing.
+    if not budget.claim():
+        return False
     try:
         token = solve_recaptcha(challenge, args.twocaptcha_key,
                                api_version=args.captcha_api,
@@ -693,14 +697,14 @@ def _parse_for_mode(html: str, url: str, args, page_num: int = 1):
     The two entry points are separate on purpose and it is not tidiness. A
     product page carries 15 `div.c-product__item` staff-review cards and an
     `awoo-product-list` recommendation block, so a listing parser turned on
-    one is exactly how a parser invents products (CLAUDE.md §4). This repo's
+    one is exactly how a parser invents products. This repo's
     tile selector is element-qualified (`li.c-product__item`) and therefore
     sees zero of them, which `smoke_test.py` pins in both directions.
 
     `page_num` is threaded through rather than defaulted, because `position`
     restarts at 1 on every page: without the page number beside it, a row
     from page 2 claims the same position as one from page 1 and the two are
-    indistinguishable in the output (§18).
+    indistinguishable in the output.
     """
     if args.mode == "product":
         rows = parse_product_detail(html, url, mode=args.mode)
@@ -716,33 +720,40 @@ def _parse_for_mode(html: str, url: str, args, page_num: int = 1):
 
 
 class _SolveBudget:
-    """Every paid solve on one page goes through here. One counter, checked
-    BEFORE each purchase rather than beside one of them.
+    """The per-page allowance for paid solves. One counter, claimed
+    IMMEDIATELY BEFORE the paid request is sent, and nowhere else.
 
-    This exists because the budget was enforced at ONE of the two call sites.
     `handle_captcha_if_present` runs twice per attempt — once before the page
     is classified, so a challenge is cleared before anything is judged, and
-    once after, for the state that says the page really is gated — and only
-    the second call was counted. The uncounted one repeats on every
-    block-retry, so the constant read like a limit and was advisory.
+    once after, for the state that says the page really is gated. Both calls
+    take this object, and both claim from it only at the point where a task
+    would really be submitted.
 
-    Nothing about that is visible on a site where a challenge is rare, which
-    is exactly this one: no challenge of any vendor has ever been observed on
-    maison.kose.co.jp, so this has never cost anything here. It is carried
-    because the day it does cost something is the day nobody is watching —
-    CLAUDE.md §17's "a policy constant nothing reads", with a bill attached,
-    and §23 measured one page buying three solves on a sibling.
+    Two earlier versions were each wrong in one direction. The first counted
+    only the second call site, so the first repeated on every block-retry and
+    one page could buy a solve per retry against a limit of one. The second
+    counted every CALL, purchase or not: the pre-classification call, which
+    on a normal page detects nothing and buys nothing, used up the whole
+    allowance, so a challenge first seen after classification (a widget
+    rendered late, or a page that only turns into a challenge after the
+    readiness wait) was never offered to the solver and the page was
+    reported as blocked.
 
-    The budget deliberately does NOT reset on rotation: a fresh exit is a
-    reason to re-fetch, not a fresh allowance to spend.
+    A claim that is then refused or fails at the solver still counts: it was
+    a request sent, and possibly billed, and not counting it would reopen
+    the overspend. Detecting nothing, finding the content already rendered
+    or having no API key claims nothing.
+
+    The allowance deliberately does NOT reset on retry or rotation: a fresh
+    exit is a reason to re-fetch, not a fresh allowance to spend.
     """
 
     def __init__(self, limit: int):
         self.limit = limit
         self.spent = 0
 
-    def spend(self, solve) -> bool:
-        """Run `solve()` if the budget allows, and count it. False if not."""
+    def claim(self) -> bool:
+        """Count one purchase if the allowance permits it. False if not."""
         if self.spent >= self.limit:
             logger.info("Not attempting another solve on this page: %d of %d "
                         "already bought. A challenge that survives a solved "
@@ -751,7 +762,7 @@ class _SolveBudget:
                         self.spent, self.limit)
             return False
         self.spent += 1
-        return bool(solve())
+        return True
 
 
 def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome:
@@ -853,7 +864,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         # Routed through the budget like every other purchase. This
         # call used to be unguarded, which is how one page could buy
         # a solve per block-retry against a limit of one.
-        if budget.spend(lambda: handle_captcha_if_present(session.page, args)):
+        if handle_captcha_if_present(session.page, args, budget):
             # A solve navigated the page. Give the destination a moment
             # before judging what came back.
             session.page.wait_for_timeout(1000)
@@ -898,7 +909,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
         # the two states, and it is bounded by SOLVES_PER_PAGE so a rotation
         # loop cannot become a bill.
         if page_flow.should_solve(state):
-            if budget.spend(lambda: handle_captcha_if_present(session.page, args)):
+            if handle_captcha_if_present(session.page, args, budget):
                 session.page.wait_for_timeout(1000)
                 html = _snapshot(session.page, url) or html
                 state = _classify(session.page, html, http_status)
@@ -924,9 +935,9 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
 
         # Blocked or challenged. A different exit is the one thing that
         # plausibly changes the outcome: the ADDRESS is what was scored, not
-        # the URL, so retrying it unchanged would only confirm it. Measured
-        # 2026-09-09 — the same URL that answers 403 from a datacentre exit
-        # answers 200 from a residential one.
+        # the URL, so retrying it unchanged would only confirm it. (On this
+        # site no refusal has been observed from any address, datacentre
+        # included; this branch is here for the day that changes.)
         if block_attempt < block_retries:
             if has_pool:
                 logger.warning("Page %d came back as %s from %s — retrying "
@@ -1004,7 +1015,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
     # This site server-renders its whole grid in the first response, so there
     # is nothing to wait for and nothing to scroll into view. Porting the
     # sibling repos' scroll loop here would be dead code that looks
-    # load-bearing (CLAUDE.md §4).
+    # load-bearing.
 
     # Dumping on success, not only on failure: a run can return the right
     # NUMBER of rows with a field silently unpopulated, and then the only way
@@ -1069,7 +1080,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
             # Said once per run rather than per page. `pages_available` is
             # None on a TAG listing, which publishes no counter at all, and
             # None means UNKNOWN: the run then walks until a page adds no new
-            # sku instead of planning (§7 layer 3).
+            # sku instead of planning.
             logger.info("Page 1: %s tile(s), %s product-shaped link(s), the "
                         "site reports %s. Canonical: %s",
                         listing.tiles_on_page, listing.product_links_on_page,
@@ -1078,7 +1089,7 @@ def _fetch_one_page(session, args, pool, page_num: int, url: str) -> PageOutcome
                         else "no page counter (a tag listing publishes none)",
                         listing.canonical or "none")
 
-    # §20: tell a BROKEN PARSER apart from an EMPTY CATEGORY before anything
+    # Tell a BROKEN PARSER apart from an EMPTY CATEGORY before anything
     # downstream reports "0 products" and sends the reader to check the URL.
     if not products and page_flow.looks_like_a_parse_failure(
             state, len(products), product_link_count(html or "")):
@@ -1258,8 +1269,8 @@ def scrape(args) -> int:
     # "page_cap_reached" means the run asked for more pages than the
     # category holds and was clamped to the site's own count. On this site
     # that is a COMPLETE result in the strong sense: this site imposes no cap
-    # of its own, so the clamp IS the whole category — /c/c15/ states 13
-    # pages, and 12 x 24 + 16 = 304 is all of Cosme Decorte.
+    # of its own, so the clamp IS the whole category — on 2026-09-18 /c/c15/
+    # stated 13 pages, 12 x 24 + 16 = 304 products.
     #
     # Only --mode product is single-page. Both listing routes paginate —
     # `_pN` on a category, `?p=N` on a tag listing — so neither may be
@@ -1316,7 +1327,7 @@ def scrape(args) -> int:
             if target != args.url:
                 # The only normalisation this site needs: a listing URL that
                 # already names a page is reset to page 1, because page 1 is
-                # what decides how far the rest can be addressed (§7).
+                # what decides how far the rest can be addressed.
                 logger.info("Normalised to page 1: %s", target)
 
             # Page 1 is always fetched on its own: its content is what decides
@@ -1343,7 +1354,7 @@ def scrape(args) -> int:
                              "not the id.", first.url)
             elif first.state == "parse_failed":
                 # Served, linked to products, parsed to nothing: OUR bug, and
-                # it must not reach the sidecar as a complete run (§20).
+                # it must not reach the sidecar as a complete run.
                 stop_reason = "parser_found_nothing"
             elif args.mode == "product":
                 pass  # one page is the whole run — but many rows
@@ -1469,7 +1480,7 @@ def scrape(args) -> int:
     #
     # NOT "pages x rows-per-page" as a hard expectation, even though the
     # page size is the site's fixed 24: the LAST page of a listing is
-    # legitimately short — /c/c15/ ends 12 x 24 + 16 = 304 — and a threshold that fires on every healthy run teaches the
+    # legitimately short — /c/c15/ ended 12 x 24 + 16 on 2026-09-18 — and a threshold that fires on every healthy run teaches the
     # reader to ignore it. What is worth warning about is a page that came
     # back materially THIN against its siblings, which is what a truncated
     # response looks like.
@@ -1509,7 +1520,7 @@ def scrape(args) -> int:
     # No `locale` here, and its absence is a measurement rather than an
     # omission: maison.kose.co.jp is one market. No `hreflang` set, no /en/
     # route, every price in JPY — so a locale field would carry `ja-jp` on
-    # every run forever, which is CLAUDE.md §9's "a value that never varies
+    # every run forever, which is the "a value that never varies
     # is not a field".
     extra = None
     if args.mode != "product":
@@ -1528,11 +1539,11 @@ def scrape(args) -> int:
         # is the finding rather than an omission. bbb-scraper needs both
         # because that site refuses to serve past page 15 however many rows
         # matched, so "complete" there can mean a 1.2% sample. This site
-        # imposes no such cap: /c/c15/ states 13 pages and 12 x 24 + 16 = 304
-        # is the whole of Cosme Decorte, so `pages_available` already says
+        # imposes no such cap: on 2026-09-18 /c/c15/ stated 13 pages and
+        # 12 x 24 + 16 = 304 products, the whole of Cosme Decorte, so `pages_available` already says
         # everything those fields would — and a `reachable_max` of
         # pages x page_size would OVERSTATE a short last page: 13 x 24 = 312
-        # against the 304 that exist.
+        # against the 304 that existed then.
 
     # Which engine ran, what version of its driver, and how long it took.
     # A sidecar that says only "complete" cannot answer "why is this run
@@ -1596,7 +1607,7 @@ def parse_args():
                         "/site/cosmedecorte/c/c15/ and /site/xyz/c/c15/ are "
                         "the same page. Rows otherwise carry the cNN the URL "
                         "asked for.")
-    p.add_argument("--pages", type=int, default=1,
+    p.add_argument("--pages", type=page_flow.at_least_one, default=1,
                    help="Number of listing pages to fetch. Applies to --mode "
                         "listing; ignored in --mode product. A category "
                         "page prints the site's own page counter, so a run "
@@ -1606,8 +1617,8 @@ def parse_args():
                         "on this site, so a request is limited only by what "
                         "the category holds, and the sidecar records both "
                         "numbers.")
-    p.add_argument("--delay", type=float, default=2.0, help="Delay between pages, seconds")
-    p.add_argument("--concurrency", type=int, default=1, metavar="N",
+    p.add_argument("--delay", type=page_flow.non_negative_seconds, default=2.0, help="Delay between pages, seconds")
+    p.add_argument("--concurrency", type=page_flow.at_least_one, default=1, metavar="N",
                    help="Fetch pages through N parallel workers (default 1 — "
                         "unchanged sequential behaviour). Each worker runs its "
                         "own browser and holds its own proxy exit, so N>1 "
@@ -1615,7 +1626,7 @@ def parse_args():
                         "from one address. Ignored with --cdp-endpoint.")
     p.add_argument("--retries", type=page_flow.attempts, default=3,
                    help=page_flow.RETRIES_HELP)
-    p.add_argument("--retry-delay", type=float, default=2.0,
+    p.add_argument("--retry-delay", type=page_flow.non_negative_seconds, default=2.0,
                    help="Seconds before the first page-load retry, doubling "
                         "thereafter (default 2.0)")
     p.add_argument("--format", choices=["json", "csv", "both"], default="both")
@@ -1634,7 +1645,7 @@ def parse_args():
     p.add_argument("--proxy-shuffle", action="store_true",
                    help="Shuffle the pool at startup, so concurrent runs do not "
                         "all begin on the first exit in the file.")
-    p.add_argument("--proxy-block-retries", type=int, default=2,
+    p.add_argument("--proxy-block-retries", type=page_flow.non_negative_int, default=2,
                    help="When a page comes back refused or behind a captcha, "
                         "retry it from this many OTHER exits before giving up "
                         "(default 2). Needs a pool of more than one; ignored "
@@ -1755,7 +1766,7 @@ def parse_args():
         # Refused rather than attempted. This parser reads Maison KOSE's own
         # tile markup and its /c/cNN/ and /g/gSKU/ URL shapes; pointing it at
         # another site would not fail loudly, it would return zero rows and
-        # look like an empty result (§8). The REASON is given, because "is
+        # look like an empty result. The REASON is given, because "is
         # not a Kose site" about kose.co.jp — which plainly is one — sends
         # the reader hunting a typo they did not make.
         p.error(f"{args.url!r} {why}.")

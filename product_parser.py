@@ -2,7 +2,7 @@
 product_parser.py
 -----------------
 Everything this repo knows about Maison KOSÉ. If you are writing a site fact
-anywhere else, it belongs here (CLAUDE.md §1).
+anywhere else, it belongs here.
 
 Which site this is, and why it is not `kose.com`
 ------------------------------------------------
@@ -16,8 +16,7 @@ behind a bot manager — there is nothing at that name to scrape.
 Kosé's actual storefront is `maison.kose.co.jp` (Maison KOSÉ), which is where
 `www.kose.co.jp` sends a visitor with its own `<meta http-equiv="refresh">`.
 That is the site this repo reads, and it is one market: Japanese, JPY, no
-`hreflang` set and no `/en/` route (all three checked 2026-09-18). CLAUDE.md
-§15's "run a SECOND country site" step is therefore answered by "there is
+`hreflang` set and no `/en/` route (all three checked 2026-09-18). The "run a SECOND country site" step is therefore answered by "there is
 only one", and the diversity in the fixtures is across BRANDS and page KINDS
 instead — which is where this site's traps turned out to live.
 
@@ -46,7 +45,7 @@ Two consequences, both of which bit during the capture pass:
 
 Two pagination conventions, and one of them repeats its last page
 -----------------------------------------------------------------
-Both listing routes publish `<link rel="next">`, which is CLAUDE.md §7's
+Both listing routes publish `<link rel="next">`, which is the
 layer 1 and leads `NEXT_PAGE_SELECTOR`. Layer 2 is `page_url()`, and it is
 route-dependent — a category takes `_p{N}` glued onto the id, a tag listing
 takes `?p={N}`. Layer 3, the data-based stop, is not optional here, because
@@ -63,20 +62,20 @@ So a category overshoot is not a 404 and not an empty page: it is the last
 page again, forever. A run that stopped on "no tiles" would never stop, and a
 run that trusted a page count would be fine only until the catalogue changed
 under it. `parse_listing` reports the site's own `N／Mページ` counter so the
-engines can PLAN against it (§7 layer 2, with the site doing the arithmetic),
-and the engines still stop on "this page added no new sku" (§7 layer 3).
+engines can PLAN against it (with the site doing the arithmetic),
+and the engines still stop on "this page added no new sku".
 Wrong parameters are silent rather than loud, which is the same trap from the
 other side: `&pageno=2` and `&page=2` on a tag listing both return page 1
 with HTTP 200.
 
 Where the data is: no JSON-LD on a listing, one block on a product
 -------------------------------------------------------------------
-Counted before a line of parser was written, per §15 step 2:
+Counted before a line of parser was written step 2:
 
     listing pages    0 `application/ld+json` blocks   (all 8 captures)
     product pages    1 block, `@type: Product`        (all 4 captures)
 
-So CLAUDE.md §4's primary path does not exist on the route that matters most,
+So the primary path does not exist on the route that matters most,
 and the listing parser is built on the site's own tile markup instead —
 which here is unusually good: `li.c-product__item` holding
 `p.c-product__brand`, `p.c-product__product-name`, `p.c-product__price` and
@@ -88,12 +87,11 @@ title, brand, price, image and tax rate all **171/171**.
 A product DETAIL page reuses the class `c-product__item` on a `<div>` for
 staff-review cards linking to `/staff/skincaredetail/…`. Measured on
 `product_MUSC`: **15** of them. A class-only selector would invent fifteen
-products per detail page, each with a `/staff/` URL and no sku — CLAUDE.md
-§4's junk-link data theft wearing a new costume. The element-qualified
+products per detail page, each with a `/staff/` URL and no sku — the junk-link data theft wearing a new costume. The element-qualified
 `li.c-product__item` sees zero, and `smoke_test.py` pins that.
 
 The same page also carries an `awoo-product-list` recommendation block
-(`awoo-product-name` ×15), which is the "similar products carousel" §4 warns
+(`awoo-product-name` ×15), which is the "similar products carousel" to watch for
 about. Both are excluded by construction rather than by a filter: the tile
 selector names the element, and the detail parser reads the page's own
 JSON-LD, never tiles.
@@ -107,7 +105,7 @@ in one of these shapes, and there is **no struck-through price anywhere**:
     1,234円（税込）※       the same, with the footnote marker
     3,024円（税込/8%）※    the reduced rate -- 2 nodes, both on /c/c15_p10/
 
-So §4's tile-price overlay is **deleted rather than ported**, which is what
+So the tile-price overlay is **deleted rather than ported**, which is what
 that section says to do when a site has no discount chain: there is no second
 view to reconcile against, and an overlay here would be dead code that looks
 load-bearing. `price_source` records WHICH NODE was read (`tile` / `jsonld` /
@@ -115,7 +113,7 @@ load-bearing. `price_source` records WHICH NODE was read (`tile` / `jsonld` /
 with like.
 
 The structured and displayed prices AGREE, which was checked rather than
-assumed (§4): JLCW 7700/7,700円, MUSC 5940/5,940円, SIRY 3300/3,300円.
+assumed: JLCW 7700/7,700円, MUSC 5940/5,940円, SIRY 3300/3,300円.
 
 `※` is `Maison KOSÉ販売価格` — "the Maison KOSÉ selling price", the store's
 own figure as opposed to a maker's suggested one. It is kept as
@@ -130,7 +128,7 @@ silently.
 
 Stock is read from the site's own button text, as an allowlist
 ---------------------------------------------------------------
-Measured across the same 171 tiles, and this is CLAUDE.md §20's rule — map
+Measured across the same 171 tiles, and this is the rule — map
 availability as an ALLOWLIST so an unanticipated value reads as "not
 available" rather than as a quiet True:
 
@@ -141,14 +139,14 @@ available" rather than as a quiet True:
     現在購入頂けません   18   currently unavailable -> NOT available
     予約受付終了        1   pre-orders closed     -> NOT available
 
-The column is verified in BOTH directions, which §20 says is otherwise not
+The column is verified in BOTH directions, which is otherwise not
 verified at all: 19 of 171 tiles are unavailable, and the JSON-LD on
 `gJQBA` independently says `OutOfStock` where its tile says 現在購入頂けません.
 
 Detection: there is nothing to detect, and that is the measurement
 -------------------------------------------------------------------
 Every candidate marker was counted on pages known to be good BEFORE any was
-added (§18), across all 13 captures including the site's own 404 and an
+added, across all 13 captures including the site's own 404 and an
 empty listing:
 
     recaptcha · grecaptcha · g-recaptcha · data-sitekey · api.js?render ·
@@ -161,10 +159,10 @@ empty listing:
 `BOT_CHALLENGE_MARKERS` is a short list of shapes that would have to appear
 if this site ever turned a challenge on — it is a tripwire, not a description
 of something observed, and it is documented as such so nobody later reads it
-as evidence that a challenge was met. Per §18 the scan only ever REFINES the
+as evidence that a challenge was met. The scan only ever REFINES the
 reason for a page the policy already gave up on.
 
-`cf-turnstile` is deliberately ABSENT from that list, per §19: 2Captcha's own
+`cf-turnstile` is deliberately ABSENT from that list: 2Captcha's own
 Scraping Browser auto-solve extension injects it into every page it loads, so
 it fires on good pages and misses real ones. `challenges.cloudflare.com` is
 the one that works, and it is what this list carries.
@@ -172,8 +170,8 @@ the one that works, and it is what this list carries.
 The positive structural signal is `/js/sys/`, which is the site's own script
 directory: **9 to 11 references on every served page**, including the 404 and
 the empty listing, and none on anything the site did not build. That is
-CLAUDE.md §8's `assets.mmsrg.com` trick, which also answers Chromium's own
-network-error page (§18) — it carries the site's hostname in its title and
+the `assets.mmsrg.com` trick, which also answers Chromium's own
+network-error page — it carries the site's hostname in its title and
 would fool a title check.
 """
 
@@ -200,7 +198,7 @@ CANONICAL_HOST = "maison.kose.co.jp"
 
 # A host that is a real Kosé property but NOT this site, kept so the refusal
 # can say WHY rather than "unsupported host", which sends the reader hunting
-# for a typo (CLAUDE.md §5).
+# for a typo.
 _OTHER_KOSE_HOSTS = {
     "www.kose.co.jp": "the Kosé corporate site, which publishes no catalogue "
                       "and redirects to maison.kose.co.jp",
@@ -257,7 +255,7 @@ def _split(url: str):
     HOST was "site" and whose path had lost its first segment. Every category
     row then parsed to `sku=None` and was dropped: 24 tiles in, ZERO rows
     out, while `tile_count` went on reporting 24. That is this codebase's
-    most common bug class (§8: doing less than it says while reporting
+    most common bug class (doing less than it says while reporting
     success) and it survived the first run because the tag fixtures, whose
     hrefs are absolute, passed throughout. The suite now pins both spellings.
     """
@@ -360,7 +358,7 @@ def brand_slug_from_url(url: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 def page_url(url: str, page_num: int) -> str:
-    """Layer 2 of CLAUDE.md §7: page N's address, built from the convention.
+    """Layer 2 of pagination: page N's address, built from the convention.
 
     Route-dependent, because this site has two conventions and using the
     wrong one FAILS SILENTLY: `?p=2` paginates a tag listing while `&page=2`
@@ -460,19 +458,19 @@ def total_pages(html: str) -> Optional[int]:
 
 # `pages_to_fetch` used to live here and was removed on 2026-09-18, because
 # how many pages a RUN should ask for is policy rather than site knowledge
-# (§1) and `page_flow.pages_to_plan` is the one implementation the engines
+# and `page_flow.pages_to_plan` is the one implementation the engines
 # call. What is site knowledge, and stays here, is that the site publishes a
 # counter at all — `total_pages` above — and what that counter means when it
 # is absent.
 #
 # Recorded rather than deleted silently: it was found by grepping every
-# public name for a consumer outside its own module (§17's check #5), which
+# public name for a consumer outside its own module (the check #5), which
 # turned it up as a function only its own test still called. A check that
 # exercises something nothing uses passes for the wrong reason.
 
 
-# `<link rel="next">` is published by both listing routes and is CLAUDE.md
-# §7's layer 1: a standards-based signal, ahead of any build artefact.
+# `<link rel="next">` is published by both listing routes and is
+# pagination's layer 1: a standards-based signal, ahead of any build artefact.
 NEXT_PAGE_SELECTOR = ("link[rel='next']", "a[rel='next']")
 
 
@@ -504,7 +502,7 @@ def canonical_url(html: str, base_url: str = "") -> Optional[str]:
 
 # JPY is the only currency this site quotes and it has no subunit, so the
 # comma is unambiguously a thousands separator and there is no decimal form
-# to disambiguate (CLAUDE.md §4's three grouping conventions collapse to one
+# to disambiguate (the three grouping conventions collapse to one
 # here). The largest price measured is 264,000 円.
 _PRICE_RE = re.compile(r"([0-9][0-9,]*)\s*円")
 
@@ -540,7 +538,7 @@ def parse_tax_rate(text: str) -> Optional[int]:
     `（税込/8%）` states the reduced rate explicitly; a bare `（税込）` means
     the standard 10%. Absent entirely -> None, never a defaulted number,
     because a price with no tax annotation is not a tax-inclusive price we
-    can vouch for (CLAUDE.md §8: never present a guess as a fact).
+    can vouch for (never present a guess as a fact).
     """
     if not text:
         return None
@@ -554,7 +552,7 @@ def parse_tax_rate(text: str) -> Optional[int]:
 # Stock
 # ---------------------------------------------------------------------------
 
-# The site's own call-to-action text, as an ALLOWLIST (CLAUDE.md §20). Counts
+# The site's own call-to-action text, as an ALLOWLIST. Counts
 # are over the 171 tiles in the 2026-09-18 captures and are in the module
 # docstring. Anything not named here reads as "not available" rather than as
 # a quiet True, so a wording the site adds tomorrow under-reports instead of
@@ -608,18 +606,18 @@ def _ld_in_stock(offer: dict) -> Optional[bool]:
 
 # A TRIPWIRE, not a description of anything seen. Every entry was counted on
 # 13 captures known to be good -- 8 listings, 4 product pages, the site's own
-# 404 and an empty listing -- and every one was ZERO (§18: count a candidate
+# 404 and an empty listing -- and every one was ZERO (count a candidate
 # on a page you know is good before adding it). They are here so that a
 # challenge switched on next month is reported as a challenge rather than as
 # an empty catalogue.
 #
 # `cf-turnstile` is deliberately absent: 2Captcha's Scraping Browser
 # auto-solve extension injects it into every page it loads, so it fires on
-# good pages and misses real ones (CLAUDE.md §19). `challenges.cloudflare.com`
+# good pages and misses real ones. `challenges.cloudflare.com`
 # is the marker that works and is what stands in for Turnstile here.
 #
 # Because nothing in this set matches anything that extension injects, the
-# `chrome-extension://` strip that §8 describes would be dead code in this
+# `chrome-extension://` strip would be dead code in this
 # repo and is deliberately not carried.
 BOT_CHALLENGE_MARKERS = (
     # NOT a bare `recaptcha`. That is what this set carried until
@@ -637,15 +635,15 @@ BOT_CHALLENGE_MARKERS = (
     #     www.google.com/recaptcha 0
     #
     # Nothing broke, because `detect_page_state` checks for rendered tiles
-    # BEFORE it looks for a marker (§17's ordering) — but a page with no
+    # BEFORE it looks for a marker (the ordering) — but a page with no
     # tiles, an exhausted tag facet say, would have been reported as a
     # CHALLENGE over CDP: exit 3 for a correct answer.
     #
     # This repo's own claim that no marker fires on a good page was true of
     # every capture it had and false of one it did not have, because all of
-    # them were fetched locally. That is CLAUDE.md §21's "the guard passed
+    # them were fetched locally. That is the "guard passed
     # for the wrong reason: a fixture fetched the way a real run does not
-    # fetch", and §24 prescribes exactly the narrowing below.
+    # fetch", and that calls for exactly the narrowing below.
     ("recaptcha/api.js", "google recaptcha"),
     ("recaptcha/api2/anchor", "google recaptcha"),
     ("recaptcha/api2/bframe", "google recaptcha"),
@@ -661,7 +659,7 @@ BOT_CHALLENGE_MARKERS = (
 
 # A refusal page is small. Unescaping the whole of a 100 KB listing on every
 # fetch buys nothing and risks a product name deep in a grid reading as a
-# marker (CLAUDE.md §20).
+# marker.
 _UNESCAPE_PREFIX = 20_000
 
 
@@ -675,7 +673,7 @@ def detect_bot_challenge(html: str, url: str = "") -> Optional[str]:
 
     Normalises HTML entities over a bounded prefix first, because an edge can
     entity-escape the punctuation in its own marker and a literal then
-    matches a browser's DOM and misses a raw HTTP response (CLAUDE.md §20).
+    matches a browser's DOM and misses a raw HTTP response.
     """
     if not html:
         return None
@@ -688,7 +686,7 @@ def detect_bot_challenge(html: str, url: str = "") -> Optional[str]:
 
 # The site's own script directory, referenced 9 to 11 times on every served
 # page including its 404 and an empty listing, and zero times on anything the
-# site did not build. CLAUDE.md §8's positive-asset signal, which is also the
+# site did not build. the positive-asset signal, which is also the
 # only thing that answers Chromium's own network-error page -- that page
 # carries the site's hostname in its <title> and no vendor marker at all.
 _ASSET_MARKERS = ("/js/sys/", "/freepage/maison-kose/")
@@ -711,7 +709,7 @@ def product_link_count(html: str) -> int:
     site serve a catalogue page at all", which is a readiness question, and
     it is generous on purpose. The gap between the two is real and is why
     rows are built from tiles instead -- a grid page carries 28 such links
-    against 24 tiles, the extra four being carousel banners (§4).
+    against 24 tiles, the extra four being carousel banners.
     """
     return len(_PRODUCT_HREF_RE.findall(html or ""))
 
@@ -741,7 +739,7 @@ def _has_product_ld(html: str) -> bool:
 # `driver.get()` returns None and WebDriver exposes no HTTP status at all, so
 # Selenium cannot thread one however carefully the other two do. Rather than
 # leave one engine worse informed than its twins — which is exactly the
-# drift §1 says a shared module exists to prevent — the parser reads the
+# drift a shared module exists to prevent — the parser reads the
 # status out of the body where the site states one.
 #
 # Maison KOSE states it in the TITLE of its platform 404: the page is a bare
@@ -766,10 +764,10 @@ def status_from_body(html: str) -> Optional[int]:
 
 def detect_page_state(html: str, status: Optional[int] = None,
                       url: str = "") -> Tuple[str, Optional[str]]:
-    """`(state, detail)` -- the triage every engine shares (CLAUDE.md §1).
+    """`(state, detail)` -- the triage every engine shares.
 
     Signals are ordered by how much they PROVE, not by how cheap they are
-    (§17's classification-order trap): a rendered tile is an unambiguous
+    (the classification-order trap): a rendered tile is an unambiguous
     positive and is checked before any threshold, so a thin-but-real page
     cannot come back as "blocked" and send the reader hunting for a proxy
     problem.
@@ -786,7 +784,7 @@ def detect_page_state(html: str, status: Optional[int] = None,
     #    The second half is not tidiness. Without it a perfectly good product
     #    page classifies as "empty", every `--mode product` run logs "page 1
     #    came back as empty" while returning a correct row, and the reader
-    #    goes hunting for a block that is not there. §17: order the signals
+    #    goes hunting for a block that is not there. Order the signals
     #    by how much they PROVE, and a page publishing its own structured
     #    product data proves it was served.
     if tile_count(html) > 0:
@@ -908,7 +906,7 @@ def parse_products(html: str, base_url: str = "", *, page: int = 1,
     """Rows from a listing page, in the order the page publishes them.
 
     The tile is the scope, and it is the OUTERMOST ancestor covering exactly
-    one product (CLAUDE.md §4): `li.c-product__item` holds one `/g/g…/` id
+    one product: `li.c-product__item` holds one `/g/g…/` id
     behind two links -- the thumbnail and the title -- which is exactly the
     MediaMarkt shape that section warns about. Counting distinct ids rather
     than links is what lets that pass; here the site names the boundary for
@@ -1008,7 +1006,7 @@ def ld_blocks(html: str) -> List[dict]:
     """Every parseable JSON-LD block on the page, flattened.
 
     A listing publishes none and a product page publishes exactly one, but
-    the shapes CLAUDE.md §4 lists are all legal and a site can start
+    the shapes listed are all legal and a site can start
     publishing any of them after a deploy: a list at the top level, a
     `@graph`, a block that does not parse at all. None of those should be an
     exception on a page whose products are readable.
@@ -1035,7 +1033,7 @@ def _ld_offer(node: dict) -> dict:
 
     `.get("offers", {})` is not enough: an explicit `"offers": null` is legal
     schema.org and a default only applies to a MISSING key, so the naive form
-    raises `AttributeError` on a page that is otherwise fine (CLAUDE.md §4).
+    raises `AttributeError` on a page that is otherwise fine.
     """
     offers = node.get("offers")
     if isinstance(offers, dict):
@@ -1091,7 +1089,7 @@ def parse_product_detail(html: str, base_url: str = "", *,
     Reads the page's own JSON-LD and never a tile. That is not a style
     preference: a detail page carries 15 `div.c-product__item` staff-review
     cards and an `awoo-product-list` recommendation block, and reading tiles
-    here is exactly how a parser invents products (§4).
+    here is exactly how a parser invents products.
     """
     soup = BeautifulSoup(html or "", "html.parser")
     scraped_at = utc_now()
@@ -1111,8 +1109,8 @@ def parse_product_detail(html: str, base_url: str = "", *,
 
     # The DOM's own price node, read as a CROSS-CHECK rather than as an
     # overlay: this site has no discount chain, so there is nothing to
-    # reconcile (§4 says delete the overlay, do not port it). Where the two
-    # disagree the row keeps the structured figure -- a fact, per §4's
+    # reconcile (delete the overlay, do not port it). Where the two
+    # disagree the row keeps the structured figure -- a fact's
     # trustworthiness ladder -- and the disagreement is reported rather than
     # silently resolved.
     dom_node = soup.select_one(".p-product-detail__item__price")
@@ -1141,7 +1139,7 @@ def parse_product_detail(html: str, base_url: str = "", *,
     # 20 g one; MLYE010 -> MLYE001, JETC001 -> JETC000, MTVZ003 -> MTVX001,
     # MWJC -> MWJA. Taking the canonical as the row's URL would have produced
     # a quarter of all rows whose link opens a different product while their
-    # title, sku and price describe this one -- CLAUDE.md §4's "every row
+    # title, sku and price describe this one -- the "every row
     # points at the wrong page while everything else looks right", which is
     # the shape of bug that survives every coverage check.
     #
@@ -1186,7 +1184,7 @@ def parse_product_detail(html: str, base_url: str = "", *,
 def detail_price_agrees(html: str) -> Optional[bool]:
     """Does the page's JSON-LD price equal the one it prints?
 
-    Its own function because CLAUDE.md §4 says to CHECK this on every new
+    Its own function because the rule is to CHECK this on every new
     site rather than assume it, and because a check that is only ever run
     once during a capture pass is a check that stops being true. The canary
     asserts it. Measured 2026-09-18: agrees on 4 of 4 product captures.

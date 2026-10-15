@@ -339,8 +339,7 @@ into 264. Every fixture in the suite pins the value, not the coverage.
 
 ## What has and has not been verified live
 
-Honest about the gap, because §13 of this family's playbook says a claim is
-measured or absent:
+Honest about the gap, because a claim here is either measured or absent:
 
 | path | status, 2026-10-13 |
 |---|---|

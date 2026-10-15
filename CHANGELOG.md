@@ -8,6 +8,55 @@ as a CLI toolkit can. A **patch** release means fixes; it does not promise
 that every flag and default is frozen. Where a patch changes behaviour an
 existing user would notice, the release notes lead with it.
 
+## [Unreleased]
+
+> **Newly refused flag values.** `--pages 0`, `--concurrency 0` and any
+> negative `--pages`, `--concurrency`, `--delay`, `--retry-delay` or
+> `--proxy-block-retries` are now usage errors (exit 2) naming the flag, in
+> every engine and in `scraper_api_client.py`. They used to be accepted: a
+> zero page count fetched nothing and reported an empty catalogue, and a
+> negative pause crashed the run after page 1.
+>
+> **pyppeteer, a page that never loads, no `--proxy`:** the run now ends as a
+> load failure (exit 5, or 6 with rows) instead of a traceback and exit 1.
+> With a pool, a repeated timeout no longer rotates the exit; only an
+> unusable exit does, as in the other engines.
+
+### Fixed
+
+- **pyppeteer crashed with `AttributeError` when a page failed to load and
+  no proxy was configured.** The load-failure branch called
+  `pool.advance(...)` on a `None` pool. It now rotates only for an unusable
+  exit, and only when the pool has another exit to rotate to.
+- **The per-page solve allowance was spent by a detection that bought
+  nothing.** The pre-classification captcha check used up the page's one
+  solve even when it found no challenge, so a challenge first seen after
+  classification was never offered to the solver and the page was reported
+  as blocked. The allowance is now claimed immediately before the paid
+  request, in all three browser engines. A purchase that fails still counts,
+  so the cap still holds at one per page across retries and rotations.
+- **The credential scan read nothing from a clone under a directory named
+  `build` or `dist`.** The skip list was tested against the absolute path. It
+  now tests the path relative to the repository, a scan that reads zero
+  files fails, and `.env*` backups, `.json` and `.csv` files are read too.
+- `.gitignore` now covers every `--dump-html NAME --pages N` output
+  (`NAME.pageN`), a root-level `*.html` dump and the usual working
+  directories (`live/`, `out/`, `tmp/`, ...).
+- `.env.example` ships `KOSE_URL` commented out, so a copied `.env` does not
+  decide what a run fetches.
+- The canary's Scraping Browser job no longer passes by skipping: with no
+  `KOSE_CDP_ENDPOINT` secret it fails with an error naming the secret, and an
+  exit 5 over CDP is a failure rather than a warning.
+- Comments that named columns this schema does not have, stated a category
+  total as current, carried another vendor's wording or gave the wrong exit
+  code for `parser_found_nothing` (it is 5) were corrected; the CI sample
+  summary counts priced rows instead of a column that does not exist.
+- Shipped files, including the README, `--help` output and the 0.1.1 notes
+  below, no longer cite private notes by name or section number; a suite
+  check keeps it that way.
+- `smoke_test.py -v` no longer crashes on a check whose detail is not a
+  string.
+
 ## [0.2.0] — 2026-10-13
 
 Worked through a third-party audit. Its headline conclusion was wrong and
@@ -190,7 +239,7 @@ as if they were this one.
 
 ## [0.1.1] — 2026-09-18
 
-A pass back over CLAUDE.md before calling the repo finished. Everything here
+A pass back over the project's own rules before calling the repo finished. Everything here
 was found by checking a claim rather than by reading the code.
 
 ### Fixed

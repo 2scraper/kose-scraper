@@ -17,7 +17,7 @@ Compare two kose-scraper runs by `sku` and report what moved.
                the two rows were read a different way — a listing row and a
                `--mode product` row populate different columns — so
                the difference is about our two snapshots rather than about
-               the product, and `--fail-on-change` ignores it (§8)
+               the product, and `--fail-on-change` ignores it
 
 **Three things make two runs incomparable, and all three are refused rather
 than diffed.** Each would otherwise produce a diff whose every line is an
@@ -35,7 +35,7 @@ artefact:
     different facets are two selections, not two observations.
 
 **Two guards the sibling repos have and this one deliberately does not**, and
-the absences are measurements rather than omissions (CLAUDE.md §17: a policy
+the absences are measurements rather than omissions (a policy
 nothing can enforce is the same defect as dead code):
 
   * no `sort` guard. Maison KOSÉ offers no ordering control on either
@@ -94,7 +94,7 @@ TRACKED_FIELDS = (
 # a product page. Diffing a listing run against a product run would report
 # each of these as a change on every row, and none of it would be about the
 # product. When the two rows disagree on `mode`, these are reported as
-# `source_changed` rather than as changes — this family's rule (§8: a
+# `source_changed` rather than as changes — this family's rule (a
 # difference that comes with a provenance difference says something about our
 # own two snapshots, not about the site).
 PROFILE_ONLY_FIELDS = (
@@ -275,7 +275,7 @@ def _check_comparable(args) -> bool:
     # control on either listing route — and no market either: it is one
     # Japanese storefront, so `source` is "maison.kose.co.jp" on both sides
     # and `currency` is JPY on every row. Neither guard would ever fire, and
-    # a guard that cannot fire is the dead code CLAUDE.md §17 is about.
+    # a guard that cannot fire is dead code that looks load-bearing.
     #
     # What DOES decide which products are in a file here is the ROUTE. A
     # category listing (/c/cNN/) holds one brand's catalogue in the site's

@@ -10,6 +10,12 @@ existing user would notice, the release notes lead with it.
 
 ## [Unreleased]
 
+### Changed
+
+- CI only: the canary's paid `scraping_browser` job now runs weekly (Mondays
+  05:40 UTC) and on a manual dispatch; the free `listing`, `http_vs_browser` and
+  `product` jobs still run daily.
+
 ## [0.3.0] — 2026-10-15
 
 > **Newly refused flag values.** `--pages 0`, `--concurrency 0` and any

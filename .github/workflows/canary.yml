@@ -8,7 +8,7 @@
 # datacentre address, listings and product pages answered HTTP 200 to a plain
 # `curl`, to `python-requests` and to a request with no User-Agent header at
 # all, with no challenge of any kind. A GitHub runner is a datacentre address
-# too, so this workflow re-measures that claim every morning.
+# too, so this workflow re-measures that claim every Monday.
 #
 # **A canary that CAN pass without a credential must never be gated on one.**
 # If Kosé ever puts its catalogue behind a key or a bot manager, this badge
@@ -16,8 +16,7 @@
 # remembering to.
 #
 # The last job exercises the PAID path (the Scraping Browser API over CDP),
-# which cannot run without a secret, and bills a session, so it runs on the
-# weekly (Monday) schedule and on a manual dispatch only. It does not pass by skipping: with no
+# which cannot run without a secret. It does not pass by skipping: with no
 # secret it FAILS with an ::error:: naming the secret, because a green check
 # that tested nothing reads exactly like one that tested something.
 #
@@ -32,9 +31,6 @@ on:
   schedule:
     # 05:40 UTC. Not on the hour: every scheduled workflow on GitHub fires at
     # :00 and the queue there is long.
-    - cron: "40 5 * * *"
-    # Mondays only: the paid job (scraping_browser) runs on this
-    # schedule (each run bills); the free jobs keep the daily one above.
     - cron: "40 5 * * 1"
   workflow_dispatch:
 
@@ -381,8 +377,6 @@ jobs:
 
   scraping_browser:
     name: Scraping Browser API (needs the KOSE_CDP_ENDPOINT secret)
-    # Paid path: weekly schedule or a manual dispatch only.
-    if: github.event_name != 'schedule' || github.event.schedule == '40 5 * * 1'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

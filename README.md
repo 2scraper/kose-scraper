@@ -249,7 +249,7 @@ So until this repo had a browserless engine, every long title came back
 short — **10 of 72 rows** on one live 3-page run — and nothing could see it,
 because there was nothing to disagree with. The parser now recovers the full
 name from the thumbnail's `alt`, which the rewrite does not touch and which
-is present on 171 of 171 measured tiles. The canary runs both engines daily
+is present on 171 of 171 measured tiles. The canary runs both engines weekly (Mondays)
 and fails if any field differs.
 
 **The brand in a URL selects nothing.** `/site/xyz/c/c15/` returns

@@ -1,4 +1,4 @@
-# kose-scraper
+# Maison KOSÉ Scraper — Product Listings, Prices and Stock in Python
 
 [![release](https://img.shields.io/github/v/release/2scraper/kose-scraper?sort=semver)](https://github.com/2scraper/kose-scraper/releases)
 [![tests](https://github.com/2scraper/kose-scraper/actions/workflows/tests.yml/badge.svg)](https://github.com/2scraper/kose-scraper/actions/workflows/tests.yml)
@@ -7,6 +7,8 @@
 [![licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 [![engines](https://img.shields.io/badge/engines-playwright%20%7C%20selenium%20%7C%20puppeteer%20%7C%20scraper--api-lightgrey)](#engine-limits)
 [![no account needed](https://img.shields.io/badge/runs%20without%20an%20account-yes-brightgreen)](#you-do-not-need-a-2captcha-key-a-proxy-or-a-browser)
+
+**Maison KOSÉ scraper** — an open-source (MIT) Python tool that reads Kosé's online store maison.kose.co.jp (brand and category listings, tag facets and product pages) and writes products, tax-inclusive prices, brands, stock and the consumption-tax rate to JSON or CSV. Measured on 2026-09-18 from a datacentre address, it needs no 2Captcha key, no proxy and no browser: plain HTTP was served and no page the site served carried a captcha marker. Use it to track prices and stock across a brand's catalogue, or compare two runs with `diff_runs.py`.
 
 **Maison KOSÉ listing-page scraper** (plain HTTP, Playwright, Selenium,
 Puppeteer, or the 2Captcha Scraping Browser API via CDP) — product listings,
@@ -398,6 +400,23 @@ staff-review card in the product fixture has its author name and text
 replaced with placeholders: it is there because the parser must IGNORE it,
 and republishing a named employee's writing is a separate act from the site
 showing it on its own page.
+
+## Guides
+
+- [How to run the 2scraper scrapers: setup, proxies, exit codes and access modes](https://2captcha.com/h/how-to-run-2scraper-open-source-scrapers) — installation, `.env`, `.meta.json` for the whole family.
+
+## Related scrapers
+
+Same CLI conventions, same output contract (one row per item, JSON or CSV, a `.meta.json` sidecar and shared exit codes):
+
+- [LG scraper](https://github.com/2scraper/lg-scraper) — Every model in an lg.com category
+- [Lidl US scraper](https://github.com/2scraper/lidl-scraper) — Grocery prices, unit prices and pack sizes from lidl.com…
+- [MediaMarkt scraper](https://github.com/2scraper/mediamarkt-scraper) — Category grids, search results and product pages from ten…
+- [Montblanc scraper](https://github.com/2scraper/montblanc-scraper) — Per-market prices, stock, collections and full variant…
+- [Pottery Barn scraper](https://github.com/2scraper/potterybarn-scraper) — Every product in a Pottery Barn category, and every SKU's…
+- [Rakuten Ichiba scraper](https://github.com/2scraper/rakuten-scraper) — Japan's largest marketplace
+
+All scrapers: [github.com/2scraper](https://github.com/2scraper) · Need another site? [Open a request](https://github.com/2scraper/.github/issues/new?title=%5BScraper%20request%5D%20)
 
 ## Licence
 
